@@ -1,59 +1,87 @@
-# menu.py
-# Este archivo controla el MENÚ PRINCIPAL del juego.
-# Aquí se definen las opciones (Inicio, Opciones, Salir),
-# cómo se dibujan en pantalla y cómo el jugador interactúa con ellas.
-
 import pygame as pg
 import sys
 import settings as cfg
-# relative import to work when `menus` is imported as a package
 from .options import loop_options
-# Usamos cfg.VENTANA, cfg.FPS, cfg.get_fuente, cfg.ANCHO/ALTO (aliases WIDTH/HEIGHT también disponibles)
 
-# Lista con las opciones del menú principal
+# Opciones del menú principal
 opciones = ["Inicio", "Opciones", "Salir"]
+opcion_seleccionada = -1  # Ninguna opción seleccionada al abrir
 
-# Índice que indica cuál opción está seleccionada actualmente
-opcion_seleccionada = 0
-
-
-def dibujar_menu():
-    """Dibuja el menú en pantalla, con las opciones centradas y resaltando la opción seleccionada."""
+def dibujar_menu(mouse_pos=None, mouse_pressed=False):
     cfg.VENTANA.fill(cfg.GRIS)
     fuente = cfg.get_fuente(0.07)
+    
+    rects = []
+    hover_index = -1
+
+    # Detectar hover
     for i, texto in enumerate(opciones):
-        color = cfg.ROJO if i == opcion_seleccionada else cfg.BLANCO
+        y = int(cfg.ALTO // 2 + i * 100 * cfg.escala_y)
+        render = fuente.render(texto, True, cfg.BLANCO)
+        rect = render.get_rect(center=(cfg.ANCHO // 2, y))
+        rects.append(rect)
+
+        if mouse_pos and rect.collidepoint(mouse_pos):
+            hover_index = i
+
+    # Dibujar opciones con prioridad a hover
+    for i, texto in enumerate(opciones):
+        rect = rects[i]
+        if i == hover_index:
+            color = (150, 0, 0) if mouse_pressed else cfg.ROJO
+        elif hover_index == -1 and opcion_seleccionada >= 0 and i == opcion_seleccionada:
+            color = cfg.ROJO
+        else:
+            color = cfg.BLANCO
+
         render = fuente.render(texto, True, color)
-        rect = render.get_rect(center=(cfg.ANCHO // 2, int(cfg.ALTO // 2 + i * 100 * cfg.escala_y)))
         cfg.VENTANA.blit(render, rect)
 
+    return rects
 
 def loop_menu(clock, loop_juego):
-    """
-    Bucle principal del menú.
-    Controla los eventos del teclado y decide si el jugador empieza el juego,
-    entra en opciones o sale.
-    """
-    global opcion_seleccionada  # Necesitamos modificar la variable global que guarda la opción
-    
+    global opcion_seleccionada
+    opcion_seleccionada = -1  # Reiniciar al abrir
+
     while True:
+        mouse_pos = pg.mouse.get_pos()
+        mouse_pressed = pg.mouse.get_pressed()[0]
+        rects = dibujar_menu(mouse_pos, mouse_pressed)
+
         for evento in pg.event.get():
             if evento.type == pg.QUIT:
                 pg.quit(); sys.exit()
+
+            # Navegación por teclado
             if evento.type == pg.KEYDOWN:
+                if opcion_seleccionada == -1:
+                    opcion_seleccionada = 0
                 if evento.key in (pg.K_UP, pg.K_w):
                     opcion_seleccionada = (opcion_seleccionada - 1) % len(opciones)
                 if evento.key in (pg.K_DOWN, pg.K_s):
                     opcion_seleccionada = (opcion_seleccionada + 1) % len(opciones)
-                if evento.key in (pg.K_RETURN, pg.K_SPACE):
-                    if opciones[opcion_seleccionada] == "Inicio":
-                        # start game; pass the main surface and clock
+                if evento.key in (pg.K_RETURN, pg.K_SPACE) and opcion_seleccionada >= 0:
+                    accion = opciones[opcion_seleccionada]
+                    if accion == "Inicio":
                         return loop_juego(cfg.VENTANA, clock)
-                    elif opciones[opcion_seleccionada] == "Opciones":
+                    elif accion == "Opciones":
                         loop_options(clock)
-                    elif opciones[opcion_seleccionada] == "Salir":
+                    elif accion == "Salir":
                         pg.quit(); sys.exit()
 
-        dibujar_menu()
+            # Click del mouse
+            if evento.type == pg.MOUSEBUTTONDOWN and evento.button == 1:
+                mx, my = evento.pos
+                for i, rect in enumerate(rects):
+                    if rect.collidepoint(mx, my):
+                        opcion_seleccionada = i
+                        accion = opciones[i]
+                        if accion == "Inicio":
+                            return loop_juego(cfg.VENTANA, clock)
+                        elif accion == "Opciones":
+                            loop_options(clock)
+                        elif accion == "Salir":
+                            pg.quit(); sys.exit()
+
         pg.display.flip()
         clock.tick(cfg.FPS)
