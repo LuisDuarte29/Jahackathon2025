@@ -1,6 +1,3 @@
 venv/
-<<<<<<< HEAD
-__pychache__
-=======
-__pycache__
->>>>>>> main
+__pycache__/
+menus/__pycache__/
