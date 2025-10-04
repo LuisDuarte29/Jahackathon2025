@@ -10,7 +10,6 @@ from settings import VENTANA, FPS
 from menus.main_menu import loop_menu
 import game
 
-
 def main():
     # pygame is already initialized in settings, but ensure a Clock exists
     clock = pg.time.Clock()
