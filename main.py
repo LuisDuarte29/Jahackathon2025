@@ -1,8 +1,8 @@
-"""Launcher for the modularized game.
+"""Lanzador para el juego modularizado.
 
-This main.py initializes pygame and runs the main menu from
-`menus.main_menu.loop_menu`. When the player chooses "Inicio", the
-menu will call `game.loop_juego` to start the game.
+Este main.py inicializa pygame y ejecuta el menú principal desde
+`menus.main_menu.loop_menu`. Cuando el jugador elige "Inicio", el
+menú llamará a `game.loop_juego` para iniciar el juego.
 """
 
 import pygame as pg
@@ -12,10 +12,21 @@ import game
 
 
 def main():
-    # pygame is already initialized in settings, but ensure a Clock exists
+    # Inicializar pygame
+    pg.init()
+    pg.display.set_caption("Jahackathon 2025 - Roguelike")
+
+    # Crear ventana
+    screen = VENTANA
+
+    # Crear reloj de pygame para controlar FPS
     clock = pg.time.Clock()
-    # Run the menu which will call into game.loop_juego when "Inicio" chosen
+
+    # Ejecutar el menú principal; al seleccionar "Inicio" se llamará a game.loop_juego
     loop_menu(clock, game.loop_juego)
+
+    # Salir de pygame al terminar
+    pg.quit()
 
 
 if __name__ == '__main__':
