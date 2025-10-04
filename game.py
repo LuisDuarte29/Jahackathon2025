@@ -164,6 +164,7 @@ def loop_juego(screen, clock):
                 if event.key == pg.K_ESCAPE:
                     res = pause.loop_pausa(clock)
                     if res == "menu":
+                        main_menu.loop_menu(clock, loop_juego)
                         return
             if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
                 if time_to_fire <= 0.0:
