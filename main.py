@@ -6,7 +6,6 @@ menú llamará a `game.loop_juego` para iniciar el juego.
 """
 
 import pygame as pg
-from settings import VENTANA, FPS
 from menus.main_menu import loop_menu
 import game
 
@@ -14,9 +13,6 @@ def main():
     # Inicializar pygame
     pg.init()
     pg.display.set_caption("Jahackathon 2025 - Roguelike")
-
-    # Crear ventana
-    screen = VENTANA
 
     # Crear reloj de pygame para controlar FPS
     clock = pg.time.Clock()
