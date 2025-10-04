@@ -3,11 +3,19 @@ import pygame as pg
 import settings as cfg
 from sprites import load_image, slice_spritesheet, Animation
 
-# (Temporal) confirmación de qué archivo se está cargando
+# --- Definición de clases jugables ---
+CLASSES = {
+    "Warrior": {"hp": 120, "speed": 220, "damage": 28, "cooldown": 0.25},
+    "Rogue":   {"hp": 80,  "speed": 300, "damage": 20, "cooldown": 0.15},
+    "Mage":    {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
+}
+# -------------------------------------
+
+# Confirmación de carga (debug)
 print("PLAYER LOADED FROM:", __file__)
 
 class Player(pg.sprite.Sprite):
-    def __init__(self, pos):
+    def __init__(self, pos, class_name="Warrior"):
         super().__init__()
         # IMPORTANTE: solo el nombre del archivo (sprites.py ya apunta a /assets)
         sheet = load_image("player_sheet.png")   # 4 cols x 2 filas, 64x64
@@ -25,9 +33,16 @@ class Player(pg.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
         self.pos = pg.math.Vector2(self.rect.center)
 
-        self.speed = cfg.PLAYER_SPEED
-        self.hp = cfg.PLAYER_MAX_HP
-        self.max_hp = cfg.PLAYER_MAX_HP
+        # --- Sistema de clases ---
+        self.class_name = class_name
+        stats = CLASSES.get(class_name, CLASSES["Warrior"])  # fallback seguro
+
+        self.speed = stats["speed"]
+        self.hp = stats["hp"]
+        self.max_hp = stats["hp"]
+        self.damage = stats["damage"]
+        self.fire_cooldown = stats["cooldown"]
+
         self._hit_timer = 0.0
 
     def update(self, dt, keys):
@@ -70,5 +85,23 @@ class Player(pg.sprite.Sprite):
         y = self.rect.top - (h + 8)
         pg.draw.rect(surface, cfg.GRAY, (x, y, w, h), border_radius=3)
         ratio = self.hp / self.max_hp if self.max_hp else 0
-        pg.draw.rect(surface, cfg.RED if ratio < 0.35 else cfg.WHITE,
+        fg_color = cfg.RED if ratio < 0.35 else cfg.WHITE
+        pg.draw.rect(surface, fg_color,
                      (x, y, int(w * ratio), h), border_radius=3)
+
+    # --- NUEVO: sistema de power-ups ---
+    def apply_powerup(self, powerup_type, value):
+        """Aplica un power-up al jugador."""
+        if powerup_type == "hp":
+            self.hp = min(self.max_hp, self.hp + value)  # curación sin pasar del máximo
+        elif powerup_type == "max_hp":
+            self.max_hp += value
+            self.hp = min(self.hp + value, self.max_hp)
+        elif powerup_type == "speed":
+            self.speed += value
+        elif powerup_type == "damage":
+            self.damage += value
+        elif powerup_type == "cooldown":
+            self.fire_cooldown = max(0.05, self.fire_cooldown - value)  # límite inferior
+        else:
+            print(f"[WARN] Power-up desconocido: {powerup_type}")
