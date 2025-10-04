@@ -22,7 +22,7 @@ BLANCO = (255, 255, 255)
 NEGRO = (0, 0, 0)
 ROJO = (220, 60, 60)
 GRIS = (120, 120, 120)
-AMARILLO = (240, 220, 0)   # <--- agregado para Bullet.py
+AMARILLO = (240, 220, 0)  # para balas, HUD, etc.
 VERDE = (60, 200, 80)
 BG = (18, 18, 24)
 ENEMY_COLOR = (200, 90, 90)
@@ -46,32 +46,21 @@ FIRE_COOLDOWN = 0.18
 
 # --- Clases de personaje ---
 CLASSES = {
-    "Warrior": {
-        "hp": 140,
-        "speed": 220,
-        "damage": 34,
-        "cooldown": 0.25
-    },
-    "Rogue": {
-        "hp": 80,
-        "speed": 300,
-        "damage": 28,
-        "cooldown": 0.12
-    },
-    "Mage": {
-        "hp": 100,
-        "speed": 260,
-        "damage": 42,
-        "cooldown": 0.20
-    }
+    "Warrior": {"hp": 140, "speed": 220, "damage": 34, "cooldown": 0.25},
+    "Rogue": {"hp": 80, "speed": 300, "damage": 28, "cooldown": 0.12},
+    "Mage": {"hp": 100, "speed": 260, "damage": 42, "cooldown": 0.20},
 }
+
+# --- Probabilidades y drops ---
+CONSUMABLE_DROP_RATE = 0.20  # 20% de chance de soltar consumible
+
 
 # --- Función para fuentes escaladas ---
 def get_fuente(alto_porcentaje):
     return pygame.font.SysFont("Arial", max(int(ALTO * alto_porcentaje), 20))
 
+
 # --- English aliases / compatibility ---
-# Algunos módulos esperan nombres como WIDTH/HEIGHT o colores en inglés.
 WIDTH, HEIGHT = ANCHO, ALTO
 WHITE = BLANCO
 BLACK = NEGRO
@@ -84,5 +73,3 @@ ENEMY_COL = ENEMY_COLOR
 
 # scale aliases
 SCALE_X, SCALE_Y = escala_x, escala_y
-
-# Exponer VENTANA, FPS, etc. (ya están definidos arriba)
