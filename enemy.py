@@ -38,19 +38,16 @@ class Enemy(pg.sprite.Sprite):
         self._flash_timer = 0.0
         self.enemy_type = enemy_type
 
-    def update(self, dt, player):
-        """Actualiza la posición del enemigo y aplica daño al jugador"""
-        # Vector hacia el jugador
-        dir_vec = pg.math.Vector2(player.rect.center) - self.pos
+# enemy.py (dentro de la clase Enemy)
+
+    def update(self, dt, player_pos):
+        """Actualiza la posición del enemigo para que siga al jugador."""
+        # Vector hacia la posición del jugador
+        dir_vec = pg.math.Vector2(player_pos) - self.pos
         if dir_vec.length_squared() > 0:
             dir_vec = dir_vec.normalize()
         self.pos += dir_vec * self.speed * dt
         self.rect.center = (int(self.pos.x), int(self.pos.y))
-
-        # Detectar contacto con el jugador y aplicar daño si puede recibirlo
-        if self.rect.colliderect(player.rect) and player.can_take_hit():
-            player.apply_damage(self.damage)
-            player.trigger_hit_cooldown(0.5)  # 0.5 segundos de invulnerabilidad
 
         # Actualizar animación
         self.anim.update(dt)
@@ -59,7 +56,6 @@ class Enemy(pg.sprite.Sprite):
         # Efecto de flash al recibir daño
         if self._flash_timer > 0:
             self._flash_timer -= dt
-
     def take_damage(self, dmg):
         self.hp = max(0, self.hp - int(dmg))
         self._flash_timer = 0.12  # flash al recibir daño
