@@ -16,31 +16,41 @@ class Enemy(pg.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
         self.pos = pg.math.Vector2(self.rect.center)
 
-        # --- Stats dinámicos según tipo ---
+        # --- Stats según tipo ---
         if enemy_type == "basic":
             self.speed = cfg.ENEMY_SPEED + random.randint(-20, 20)
             self.max_hp = cfg.ENEMY_MAX_HP
+            self.damage = 10
         elif enemy_type == "fast":
             self.speed = cfg.ENEMY_SPEED * 1.5
             self.max_hp = int(cfg.ENEMY_MAX_HP * 0.6)
+            self.damage = 8
         elif enemy_type == "tank":
             self.speed = cfg.ENEMY_SPEED * 0.6
             self.max_hp = int(cfg.ENEMY_MAX_HP * 2)
-        else:  # fallback
+            self.damage = 20
+        else:
             self.speed = cfg.ENEMY_SPEED
             self.max_hp = cfg.ENEMY_MAX_HP
+            self.damage = 10
 
         self.hp = self.max_hp
         self._flash_timer = 0.0
         self.enemy_type = enemy_type
 
-    def update(self, dt, player_pos):
-        # Seguir al jugador
-        dir_vec = (pg.math.Vector2(player_pos) - self.pos)
+    def update(self, dt, player):
+        """Actualiza la posición del enemigo y aplica daño al jugador"""
+        # Vector hacia el jugador
+        dir_vec = pg.math.Vector2(player.rect.center) - self.pos
         if dir_vec.length_squared() > 0:
             dir_vec = dir_vec.normalize()
         self.pos += dir_vec * self.speed * dt
         self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+        # Detectar contacto con el jugador y aplicar daño si puede recibirlo
+        if self.rect.colliderect(player.rect) and player.can_take_hit():
+            player.apply_damage(self.damage)
+            player.trigger_hit_cooldown(0.5)  # 0.5 segundos de invulnerabilidad
 
         # Actualizar animación
         self.anim.update(dt)
@@ -52,12 +62,13 @@ class Enemy(pg.sprite.Sprite):
 
     def take_damage(self, dmg):
         self.hp = max(0, self.hp - int(dmg))
-        self._flash_timer = 0.12  # un poco más visible
+        self._flash_timer = 0.12  # flash al recibir daño
 
     def is_dead(self):
         return self.hp <= 0
 
     def draw_hp(self, surface):
+        """Dibuja barra de vida del enemigo"""
         w, h = self.rect.width, 4
         x = self.rect.centerx - w // 2
         y = self.rect.top - (h + 4)
@@ -67,6 +78,7 @@ class Enemy(pg.sprite.Sprite):
                      (x, y, int(w * ratio), h), border_radius=2)
 
     def draw(self, surface):
+        """Dibuja efecto flash si recibió daño"""
         if self._flash_timer > 0:
             temp = pg.Surface(self.rect.size, pg.SRCALPHA)
             temp.fill((255, 255, 255, 120))

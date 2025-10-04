@@ -5,10 +5,14 @@ import random
 import settings as cfg
 from player import Player
 from enemy import Enemy
+from bullet import Bullet
+from powerup import PowerUp
+from consumable import Consumable
 from menus import main_menu, pause
+from inventory import InventoryHUD  # <-- HUD de consumibles
 from hud import draw_ui, HUD
 
-
+# --- Teclas mapeadas a clases ---
 CLASS_KEYS = {pg.K_1: "Warrior", pg.K_2: "Rogue", pg.K_3: "Mage"}
 
 
@@ -103,6 +107,7 @@ def game_over_screen(screen, clock, score, time_alive):
 
 
 def class_selection_screen(screen, clock):
+    """Pantalla para seleccionar la clase del jugador"""
     font = pg.font.Font(None, 48)
     small_font = pg.font.Font(None, 32)
     while True:
@@ -126,8 +131,10 @@ def class_selection_screen(screen, clock):
         pg.display.flip()
         clock.tick(cfg.FPS)
 
-
 def loop_juego(screen, clock):
+    """Bucle principal del juego"""
+    global powerups_spawned
+    # --- Selección de clase ---
     class_name = class_selection_screen(screen, clock)
     player = Player((cfg.WIDTH // 2, cfg.HEIGHT // 2), class_name=class_name)
     
@@ -135,6 +142,8 @@ def loop_juego(screen, clock):
     all_sprites = pg.sprite.Group()
     enemies = pg.sprite.Group()
     bullets = pg.sprite.Group()
+    powerups = pg.sprite.Group()
+    consumables = pg.sprite.Group()
     all_sprites.add(player)
 
     # Crear HUD
@@ -150,12 +159,13 @@ def loop_juego(screen, clock):
     enemy_spawn_timer = 0.0
     enemy_spawn_interval = 2.0
     jugando = True
-
     while jugando:
         dt = clock.tick(cfg.FPS) / 1000.0
         keys = pg.key.get_pressed()
+        spawn_timer += dt
         time_to_fire = max(0.0, time_to_fire - dt)
 
+        # --- Manejo de eventos ---
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
@@ -169,6 +179,8 @@ def loop_juego(screen, clock):
                 if time_to_fire <= 0.0:
                     mx, my = event.pos
                     b = Bullet(player.rect.center, (mx, my), damage=player.damage)
+                    bullets.add(b)
+                    all_sprites.add(b)
                     bullets.add(b)
                     all_sprites.add(b)
                     time_to_fire = player.fire_cooldown
@@ -191,7 +203,7 @@ def loop_juego(screen, clock):
         # Updates
         player.update(dt, keys)
         for e in enemies:
-            e.update(dt, player.rect.center)
+            e.update(dt, player)
         bullets.update(dt)
 
         # Colisiones: bullets -> enemies
