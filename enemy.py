@@ -163,8 +163,9 @@ class Enemy(pg.sprite.Sprite):
 
 class Boss(Enemy):
     def __init__(self, pos):
-        super().__init__(pos, enemy_type="boss")
-        # Stats del boss
+        super().__init__(pos, enemy_type="tank")  # Boss usa sprites de "tank"
+
+        # Stats específicos del boss
         self.speed = cfg.ENEMY_SPEED * 0.8
         self.max_hp = cfg.ENEMY_MAX_HP * 3
         self.hp = self.max_hp
