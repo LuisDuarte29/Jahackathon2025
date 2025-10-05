@@ -17,8 +17,8 @@ print("PLAYER LOADED FROM:", __file__)
 class Player(pg.sprite.Sprite):
     def __init__(self, pos, class_name="Warrior"):
         super().__init__()
-        # IMPORTANTE: solo el nombre del archivo (sprites.py ya apunta a /assets)
-        sheet = load_image("player_sheet.png")   # 4 cols x 2 filas, 64x64
+        # Animación
+        sheet = load_image("player_sheet.png")
         frames = slice_spritesheet(sheet, 64, 64, cols=4, rows=2)
         right_frames = frames[0:4]
         left_frames  = frames[4:8]
@@ -32,10 +32,11 @@ class Player(pg.sprite.Sprite):
         self.image = self.anim.frame()
         self.rect = self.image.get_rect(center=pos)
         self.pos = pg.math.Vector2(self.rect.center)
+        self.vel = pg.math.Vector2(0, 0)
 
         # --- Sistema de clases ---
         self.class_name = class_name
-        stats = CLASSES.get(class_name, CLASSES["Warrior"])  # fallback seguro
+        stats = CLASSES.get(class_name, CLASSES["Warrior"])
 
         self.speed = stats["speed"]
         self.hp = stats["hp"]
@@ -45,7 +46,9 @@ class Player(pg.sprite.Sprite):
 
         self._hit_timer = 0.0
 
+    # --- MÉTODOS DE LA CLASE (AHORA INDENTADOS CORRECTAMENTE) ---
     def update(self, dt, keys):
+        self.vel = pg.math.Vector2(0, 0)
         direction = pg.math.Vector2(
             (keys[pg.K_d] or keys[pg.K_RIGHT]) - (keys[pg.K_a] or keys[pg.K_LEFT]),
             (keys[pg.K_s] or keys[pg.K_DOWN]) - (keys[pg.K_w] or keys[pg.K_UP])
@@ -56,17 +59,13 @@ class Player(pg.sprite.Sprite):
                 self.facing = "left";  self.anim = self.anim_left
             elif direction.x > 0:
                 self.facing = "right"; self.anim = self.anim_right
-
-        self.pos += direction * self.speed * dt
-        half_w, half_h = self.rect.width // 2, self.rect.height // 2
-        self.pos.x = max(half_w, min(cfg.WIDTH - half_w, self.pos.x))
-        self.pos.y = max(half_h, min(cfg.HEIGHT - half_h, self.pos.y))
-        self.rect.center = (int(self.pos.x), int(self.pos.y))
-
-        moving = direction.length_squared() > 0
+        
+        self.vel = direction * self.speed
+        
+        moving = self.vel.length_squared() > 0
         self.anim.update(dt if moving else dt * 0.4)
         self.image = self.anim.frame()
-
+        
     def apply_damage(self, dmg):
         self.hp = max(0, self.hp - int(dmg))
 
@@ -89,11 +88,10 @@ class Player(pg.sprite.Sprite):
         pg.draw.rect(surface, fg_color,
                      (x, y, int(w * ratio), h), border_radius=3)
 
-    # --- NUEVO: sistema de power-ups ---
     def apply_powerup(self, powerup_type, value):
         """Aplica un power-up al jugador."""
         if powerup_type == "hp":
-            self.hp = min(self.max_hp, self.hp + value)  # curación sin pasar del máximo
+            self.hp = min(self.max_hp, self.hp + value)
         elif powerup_type == "max_hp":
             self.max_hp += value
             self.hp = min(self.hp + value, self.max_hp)
@@ -102,6 +100,6 @@ class Player(pg.sprite.Sprite):
         elif powerup_type == "damage":
             self.damage += value
         elif powerup_type == "cooldown":
-            self.fire_cooldown = max(0.05, self.fire_cooldown - value)  # límite inferior
+            self.fire_cooldown = max(0.05, self.fire_cooldown - value)
         else:
             print(f"[WARN] Power-up desconocido: {powerup_type}")

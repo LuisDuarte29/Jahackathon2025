@@ -73,3 +73,5 @@ ENEMY_COL = ENEMY_COLOR
 
 # scale aliases
 SCALE_X, SCALE_Y = escala_x, escala_y
+# --- Tilemap Settings ---
+TILESIZE = 64

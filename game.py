@@ -11,6 +11,7 @@ from menus import main_menu, pause
 from menus.class_selection import class_selection_screen
 from hud import HUD
 from inventory import InventoryHUD
+from tilemap import Map 
 
 
 # --- Constantes del juego ---
@@ -91,6 +92,10 @@ def loop_juego(screen, clock):
     hud = HUD(player)
     inventory_hud = InventoryHUD(player)
 
+    # --- Cargar el mapa ---
+    game_map = Map()
+    walls = game_map.make_map()
+
     all_sprites = pg.sprite.Group(player)
     enemies = pg.sprite.Group()
     bullets = pg.sprite.Group()
@@ -130,6 +135,26 @@ def loop_juego(screen, clock):
         player.update(dt, keys)
         enemies.update(dt, player.rect.center)  # enemigos siguen al jugador
         bullets.update(dt)
+
+        # --- Lógica de colisión con el mapa ---
+        player.pos += player.vel * dt
+        player.rect.centerx = player.pos.x
+        collided_sprites = pg.sprite.spritecollide(player, walls, False)
+        for wall in collided_sprites:
+            if player.vel.x > 0:  # Moviéndose a la derecha
+                player.rect.right = wall.rect.left
+            if player.vel.x < 0:  # Moviéndose a la izquierda
+                player.rect.left = wall.rect.right
+            player.pos.x = player.rect.centerx
+
+        player.rect.centery = player.pos.y
+        collided_sprites = pg.sprite.spritecollide(player, walls, False)
+        for wall in collided_sprites:
+            if player.vel.y > 0:  # Moviéndose hacia abajo
+                player.rect.bottom = wall.rect.top
+            if player.vel.y < 0:  # Moviéndose hacia arriba
+                player.rect.top = wall.rect.bottom
+            player.pos.y = player.rect.centery
 
         # --- Lógica de Spawn ---
         enemy_spawn_timer += dt
@@ -205,6 +230,8 @@ def loop_juego(screen, clock):
 
         # --- Dibujado ---
         screen.fill(cfg.BG_COLOR)
+        game_map.render(screen)
+        
         for s in all_sprites:
             screen.blit(s.image, s.rect)
             if hasattr(s, "draw_health_bar"):
