@@ -1,14 +1,16 @@
-# bullet.py
 import pygame as pg
 import settings as cfg
 
 
 class Bullet(pg.sprite.Sprite):
-    def __init__(self, start_pos, target_pos, damage=None):
+    def __init__(self, start_pos, target_pos, damage=None, player_class="Warrior"):
         super().__init__()
+        # Elegir color según la clase del jugador
+        bullet_color = cfg.BULLET_COLORS.get(player_class, cfg.YELLOW)
+
         # Imagen de la bala
         self.image = pg.Surface(cfg.BULLET_SIZE, pg.SRCALPHA)
-        self.image.fill(cfg.YELLOW)
+        self.image.fill(bullet_color)
         self.rect = self.image.get_rect(center=start_pos)
 
         # Vector hacia el objetivo (click del mouse)
@@ -25,7 +27,6 @@ class Bullet(pg.sprite.Sprite):
 
     def update(self, dt):
         """Actualiza posición y vida de la bala"""
-        # Movimiento proporcional al tiempo delta
         self.rect.x += int(self.vel.x * dt)
         self.rect.y += int(self.vel.y * dt)
 
@@ -37,9 +38,9 @@ class Bullet(pg.sprite.Sprite):
         # Destruir si sale de la pantalla
         if (
             self.rect.right < 0
-            or self.rect.left > cfg.WIDTH
+            or self.rect.left > cfg.ANCHO
             or self.rect.bottom < 0
-            or self.rect.top > cfg.HEIGHT
+            or self.rect.top > cfg.ALTO
         ):
             self.kill()
 

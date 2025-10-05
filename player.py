@@ -2,17 +2,19 @@
 import pygame as pg
 import settings as cfg
 from sprites import load_image, slice_spritesheet, Animation
+from bullet import Bullet  # Importamos la bala
 
 # --- Definición de clases jugables ---
 CLASSES = {
     "Warrior": {"hp": 120, "speed": 220, "damage": 28, "cooldown": 0.25},
-    "Rogue":   {"hp": 80,  "speed": 300, "damage": 20, "cooldown": 0.15},
-    "Mage":    {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
+    "Rogue": {"hp": 80, "speed": 300, "damage": 20, "cooldown": 0.15},
+    "Mage": {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
 }
 # -------------------------------------
 
 # Confirmación de carga (debug)
 print("PLAYER LOADED FROM:", __file__)
+
 
 class Player(pg.sprite.Sprite):
     def __init__(self, pos, class_name="Warrior"):
@@ -21,11 +23,15 @@ class Player(pg.sprite.Sprite):
         sheet = load_image("player_sheet.png")
         frames = slice_spritesheet(sheet, 64, 64, cols=4, rows=2)
         right_frames = frames[0:4]
-        left_frames  = frames[4:8]
+        left_frames = frames[4:8]
 
         target = (32, 32)
-        self.anim_right = Animation(right_frames, sec_per_frame=0.12, loop=True, scale=target)
-        self.anim_left  = Animation(left_frames,  sec_per_frame=0.12, loop=True, scale=target)
+        self.anim_right = Animation(
+            right_frames, sec_per_frame=0.12, loop=True, scale=target
+        )
+        self.anim_left = Animation(
+            left_frames, sec_per_frame=0.12, loop=True, scale=target
+        )
         self.facing = "right"
         self.anim = self.anim_right
 
@@ -45,27 +51,48 @@ class Player(pg.sprite.Sprite):
         self.fire_cooldown = stats["cooldown"]
 
         self._hit_timer = 0.0
+        self._shoot_timer = 0.0  # temporizador para controlar disparos
 
-    # --- MÉTODOS DE LA CLASE (AHORA INDENTADOS CORRECTAMENTE) ---
+    # --- MÉTODOS DE LA CLASE ---
     def update(self, dt, keys):
         self.vel = pg.math.Vector2(0, 0)
         direction = pg.math.Vector2(
             (keys[pg.K_d] or keys[pg.K_RIGHT]) - (keys[pg.K_a] or keys[pg.K_LEFT]),
-            (keys[pg.K_s] or keys[pg.K_DOWN]) - (keys[pg.K_w] or keys[pg.K_UP])
+            (keys[pg.K_s] or keys[pg.K_DOWN]) - (keys[pg.K_w] or keys[pg.K_UP]),
         )
         if direction.length_squared() > 0:
             direction = direction.normalize()
             if direction.x < 0:
-                self.facing = "left";  self.anim = self.anim_left
+                self.facing = "left"
+                self.anim = self.anim_left
             elif direction.x > 0:
-                self.facing = "right"; self.anim = self.anim_right
-        
+                self.facing = "right"
+                self.anim = self.anim_right
+
         self.vel = direction * self.speed
-        
+        self.pos += self.vel * dt
+        self.rect.center = self.pos
+
         moving = self.vel.length_squared() > 0
         self.anim.update(dt if moving else dt * 0.4)
         self.image = self.anim.frame()
-        
+
+        # Control de disparo
+        if self._shoot_timer > 0:
+            self._shoot_timer -= dt
+
+    def shoot(self, target_pos, bullet_group):
+        """Dispara una bala hacia la posición del mouse (target_pos)."""
+        if self._shoot_timer <= 0:
+            bullet = Bullet(
+                start_pos=self.rect.center,
+                target_pos=target_pos,
+                damage=self.damage,
+                player_class=self.class_name,  # se pasa la clase del jugador
+            )
+            bullet_group.add(bullet)
+            self._shoot_timer = self.fire_cooldown
+
     def apply_damage(self, dmg):
         self.hp = max(0, self.hp - int(dmg))
 
@@ -85,8 +112,7 @@ class Player(pg.sprite.Sprite):
         pg.draw.rect(surface, cfg.GRAY, (x, y, w, h), border_radius=3)
         ratio = self.hp / self.max_hp if self.max_hp else 0
         fg_color = cfg.RED if ratio < 0.35 else cfg.WHITE
-        pg.draw.rect(surface, fg_color,
-                     (x, y, int(w * ratio), h), border_radius=3)
+        pg.draw.rect(surface, fg_color, (x, y, int(w * ratio), h), border_radius=3)
 
     def apply_powerup(self, powerup_type, value):
         """Aplica un power-up al jugador."""

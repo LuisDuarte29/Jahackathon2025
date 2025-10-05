@@ -4,14 +4,7 @@ import math
 import random
 import settings as cfg
 
-# Stats definitivos de las clases
-CLASSES = {
-    "Warrior": {"hp": 120, "speed": 220, "damage": 28, "cooldown": 0.25},
-    "Rogue": {"hp": 80, "speed": 300, "damage": 20, "cooldown": 0.15},
-    "Mage": {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
-}
-
-# Fondo animado
+# --- Fondo animado ---
 estrellas = [
     {
         "pos": pg.Vector2(random.randint(0, cfg.ANCHO), random.randint(0, cfg.ALTO)),
@@ -32,7 +25,7 @@ def actualizar_fondo(dt):
 
 
 def dibujar_fondo(screen):
-    screen.fill((10, 10, 30))
+    screen.fill(cfg.BG_COLOR)
     for estrella in estrellas:
         pg.draw.circle(
             screen,
@@ -43,7 +36,7 @@ def dibujar_fondo(screen):
 
 
 def dibujar_titulo(screen, tiempo):
-    fuente = cfg.get_fuente(0.1)
+    fuente = cfg.get_fuente(0.07)  # tamaño más proporcionado
     texto = "Selecciona tu clase"
     alpha = int((math.sin(tiempo * 2) + 1) * 127)
     offset_y = int(math.sin(tiempo) * 10)
@@ -71,33 +64,35 @@ def dibujar_clases(screen, mouse_pos=None, mouse_pressed=False):
     fuente = cfg.get_fuente(0.05)
     small_font = cfg.get_fuente(0.035)
 
-    clases = list(CLASSES.keys())
+    clases = list(cfg.CLASSES.keys())
     rects = []
     hover_index = -1
 
-    ancho_total = len(clases) * 250
-    inicio_x = (cfg.ANCHO - ancho_total) // 2 + 125
-    y_base = int(cfg.ALTO * 0.3)
+    # Distribución horizontal centrada
+    espacio_x = 280  # distancia entre tarjetas
+    ancho_total = (len(clases) - 1) * espacio_x
+    inicio_x = (cfg.ANCHO // 2) - (ancho_total // 2)
+    y_base = int(cfg.ALTO * 0.35)
 
     for i, cls in enumerate(clases):
-        cx = inicio_x + i * 250
-        rect = pg.Rect(cx - 100, y_base - 60, 200, 300)
+        cx = inicio_x + i * espacio_x
+        rect = pg.Rect(cx - 100, y_base - 80, 200, 320)
         rects.append(rect)
         if mouse_pos and rect.collidepoint(mouse_pos):
             hover_index = i
 
     for i, cls in enumerate(clases):
         rect = rects[i]
-        data = CLASSES[cls]
+        data = cfg.CLASSES[cls]
 
         # Borde destacado
         if i == hover_index:
-            pg.draw.rect(screen, cfg.ROJO, rect.inflate(10, 10), border_radius=12)
+            pg.draw.rect(screen, cfg.ROJO, rect.inflate(12, 12), border_radius=14)
         pg.draw.rect(screen, (200, 200, 200), rect, width=2, border_radius=12)
 
-        # Representación de la "skin" (rectángulo temporal)
+        # Placeholder skin
         skin_rect = pg.Rect(0, 0, 90, 90)
-        skin_rect.center = (rect.centerx, rect.top + 60)
+        skin_rect.center = (rect.centerx, rect.top + 70)
         pg.draw.rect(screen, (100, 100, 250), skin_rect, border_radius=8)
 
         # Nombre
@@ -108,17 +103,17 @@ def dibujar_clases(screen, mouse_pos=None, mouse_pressed=False):
         stats = [
             ("Vida", data["hp"], 150, (0, 200, 0)),
             ("Vel", data["speed"], 350, (0, 150, 200)),
-            ("Daño", data["damage"], 40, (200, 200, 0)),
+            ("Daño", data["damage"], 50, (200, 200, 0)),
         ]
         for j, (nombre, val, max_val, color) in enumerate(stats):
             label = small_font.render(f"{nombre}: {val}", True, cfg.BLANCO)
             screen.blit(
-                label, label.get_rect(center=(rect.centerx, rect.top + 190 + j * 50))
+                label, label.get_rect(center=(rect.centerx, rect.top + 200 + j * 55))
             )
             dibujar_barra(
                 screen,
                 rect.centerx - 60,
-                rect.top + 210 + j * 50,
+                rect.top + 220 + j * 55,
                 val,
                 max_val,
                 color=color,
@@ -127,7 +122,7 @@ def dibujar_clases(screen, mouse_pos=None, mouse_pressed=False):
         # Cooldown
         cd_label = small_font.render(f"Cooldown: {data['cooldown']}s", True, cfg.BLANCO)
         screen.blit(
-            cd_label, cd_label.get_rect(center=(rect.centerx, rect.bottom - 40))
+            cd_label, cd_label.get_rect(center=(rect.centerx, rect.bottom - 35))
         )
 
     return rects, hover_index
@@ -140,21 +135,20 @@ def class_selection_screen(screen, clock):
         dt = clock.tick(cfg.FPS) / 1000.0
         tiempo += dt
         mouse_pos = pg.mouse.get_pos()
-        mouse_pressed = pg.mouse.get_pressed()[0]
 
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
                 raise SystemExit
             if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
-                rects, _ = dibujar_clases(screen, mouse_pos, mouse_pressed)
+                rects, _ = dibujar_clases(screen, mouse_pos)
                 for i, rect in enumerate(rects):
                     if rect.collidepoint(event.pos):
-                        return list(CLASSES.keys())[i]
+                        return list(cfg.CLASSES.keys())[i]
 
         actualizar_fondo(dt)
         dibujar_fondo(screen)
         dibujar_titulo(screen, tiempo)
-        dibujar_clases(screen, mouse_pos, mouse_pressed)
+        dibujar_clases(screen, mouse_pos)
 
         pg.display.flip()
