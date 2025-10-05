@@ -22,6 +22,7 @@ class Consumable(pg.sprite.Sprite):
         Efecto al recoger el consumible.
         Ahora interactúa con el HUD directamente en lugar del player.
         """
-        hud.add_coin(1)
+        hud.add_coin(1)  # Llama al método add_coin del HUD
         hud.add_floating_text("+1 Moneda", self.rect.center, (255, 215, 0))
+        print(f"Moneda recogida! Total: {hud.coins}")  # Debug
         self.kill()

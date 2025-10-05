@@ -1,5 +1,6 @@
 import pygame as pg
 import settings as cfg
+from pathlib import Path
 from sprites import load_image # Usamos la función de sprites.py para cargar imágenes
 
 class Tile(pg.sprite.Sprite):
@@ -21,9 +22,10 @@ class Map:
         self.wall_image = pg.transform.scale(wall_img, (cfg.TILESIZE, cfg.TILESIZE))
         self.floor_image = pg.transform.scale(floor_img, (cfg.TILESIZE, cfg.TILESIZE))
         
-        # Leemos el archivo de mapa
+        # Leemos el archivo de mapa desde la carpeta maps
+        map_path = Path("maps") / filename
         self.data = []
-        with open(filename, 'rt') as f:
+        with open(map_path, 'rt') as f:
             for line in f:
                 self.data.append(line.strip())
         self.tilewidth = len(self.data[0])

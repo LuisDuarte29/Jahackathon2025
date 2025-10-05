@@ -1,6 +1,7 @@
 # hud.py
 import pygame as pg
 from settings import WIDTH, HEIGHT, WHITE
+import shop
 
 
 def create_heart_surface(color):
@@ -68,14 +69,24 @@ class HUD:
         self.score = 0
         self.time_alive = 0.0
         self.floating_texts = []
+        self._coins = 0  # Variable privada para monedas
 
         # Fuente
         self.font = font if font else pg.font.SysFont("consolas,roboto,arial", 18)
 
         # Contador de monedas
-        self.coins = 0
         self.icon_coin = pg.Surface((24, 24))
         self.icon_coin.fill((255, 215, 0))  # dorado
+
+    @property
+    def coins(self):
+        """Getter para monedas"""
+        return self._coins
+
+    @coins.setter
+    def coins(self, value):
+        """Setter para monedas - asegura que no sea negativo"""
+        self._coins = max(0, value)
 
     def update(self, dt):
         """Actualiza el HUD y textos flotantes."""
@@ -93,6 +104,12 @@ class HUD:
     def add_coin(self, amount=1):
         """Añade monedas al HUD."""
         self.coins += amount
+        print(f"Moneda añadida! Total: {self.coins}")
+
+    def remove_coins(self, amount):
+        """Remueve monedas del HUD."""
+        self.coins -= amount
+        print(f"Monedas removidas: {amount}. Total: {self.coins}")
 
     def add_floating_text(self, text, pos, color=(255, 255, 255)):
         """Texto flotante (ej: +100, +1 moneda)."""
@@ -111,11 +128,11 @@ class HUD:
         # Corazones (arriba centro)
         draw_hearts(screen, self.player, y=40)
 
-        # Monedas (arriba derecha)
+        # Monedas (arriba derecha) - CORREGIDO: usa self.coins en lugar de shop.hud.coins
         x = WIDTH - 100
         y = 10
         screen.blit(self.icon_coin, (x, y))
-        txt_coin = self.font.render(str(self.coins), True, WHITE)
+        txt_coin = self.font.render(str(self.coins), True, WHITE)  # <- AQUÍ ESTÁ LA CORRECCIÓN
         screen.blit(txt_coin, (x + 28, y + 2))
 
         # Textos flotantes

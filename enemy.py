@@ -2,14 +2,13 @@ import pygame as pg
 import settings as cfg
 from sprites import load_image, slice_spritesheet, Animation
 import random
-from bullet import EnemyBullet  # <- IMPORTANTE
-
+from bullet import EnemyBullet
 
 class Enemy(pg.sprite.Sprite):
     def __init__(self, pos, enemy_type="basic"):
         super().__init__()
         # --- Animación ---
-        sheet = load_image("enemy_sheet.png")  # 4 cols x 1 fila, 64x64
+        sheet = load_image("enemy_sheet.png")
         frames = slice_spritesheet(sheet, 64, 64, cols=4, rows=1)
         self.anim = Animation(frames, sec_per_frame=0.12, loop=True, scale=(32, 32))
 
@@ -19,7 +18,7 @@ class Enemy(pg.sprite.Sprite):
 
         # --- Disparo enemigo ---
         self.can_shoot = enemy_type in ["basic", "tank"]
-        self.fire_cooldown = 2.0  # tiempo entre disparos (segundos)
+        self.fire_cooldown = 2.0
         self.fire_timer = self.fire_cooldown
 
         # --- Stats según tipo ---
@@ -44,14 +43,61 @@ class Enemy(pg.sprite.Sprite):
         self._flash_timer = 0.0
         self.enemy_type = enemy_type
 
-    def update(self, dt, player_pos, bullets_group=None):
+    def update(self, dt, player_pos, bullets_group=None, walls_group=None):
         """Actualiza posición y comportamiento del enemigo."""
         # Movimiento hacia el jugador
         dir_vec = pg.math.Vector2(player_pos) - self.pos
         if dir_vec.length_squared() > 0:
             dir_vec = dir_vec.normalize()
-        self.pos += dir_vec * self.speed * dt
-        self.rect.center = (int(self.pos.x), int(self.pos.y))
+        
+        # Calcular nueva posición
+        new_pos = self.pos + dir_vec * self.speed * dt
+        new_rect = self.rect.copy()
+        new_rect.center = new_pos
+        
+        # Verificar colisión con paredes antes de mover
+        can_move = True
+        if walls_group:
+            for wall in walls_group:
+                if new_rect.colliderect(wall.rect):
+                    can_move = False
+                    break
+        
+        # Solo mover si no hay colisión
+        if can_move:
+            self.pos = new_pos
+            self.rect.center = (int(self.pos.x), int(self.pos.y))
+        else:
+            # Si no puede moverse, intentar moverse solo en X o solo en Y
+            # Intentar solo X
+            test_pos_x = pg.math.Vector2(new_pos.x, self.pos.y)
+            test_rect_x = self.rect.copy()
+            test_rect_x.center = test_pos_x
+            
+            can_move_x = True
+            for wall in walls_group:
+                if test_rect_x.colliderect(wall.rect):
+                    can_move_x = False
+                    break
+            
+            if can_move_x:
+                self.pos.x = test_pos_x.x
+                self.rect.centerx = int(self.pos.x)
+            else:
+                # Intentar solo Y
+                test_pos_y = pg.math.Vector2(self.pos.x, new_pos.y)
+                test_rect_y = self.rect.copy()
+                test_rect_y.center = test_pos_y
+                
+                can_move_y = True
+                for wall in walls_group:
+                    if test_rect_y.colliderect(wall.rect):
+                        can_move_y = False
+                        break
+                
+                if can_move_y:
+                    self.pos.y = test_pos_y.y
+                    self.rect.centery = int(self.pos.y)
 
         # Animación y flash
         self.anim.update(dt)
@@ -69,7 +115,7 @@ class Enemy(pg.sprite.Sprite):
 
     def take_damage(self, dmg):
         self.hp = max(0, self.hp - int(dmg))
-        self._flash_timer = 0.12  # flash al recibir daño
+        self._flash_timer = 0.12
 
     def is_dead(self):
         return self.hp <= 0
@@ -88,22 +134,15 @@ class Enemy(pg.sprite.Sprite):
             border_radius=2,
         )
 
-    def draw(self, surface):
-        """Dibuja efecto flash si recibió daño"""
-        if self._flash_timer > 0:
-            temp = pg.Surface(self.rect.size, pg.SRCALPHA)
-            temp.fill((255, 255, 255, 120))
-            surface.blit(temp, self.rect.topleft, special_flags=pg.BLEND_ADD)
-
 class Boss(Enemy):
     """Una clase para el jefe final, más grande y más fuerte."""
     def __init__(self, pos, enemy_type="boss"):
         super().__init__(pos, enemy_type)
         
         # Sobrescribir las estadísticas para el jefe
-        self.speed = cfg.ENEMY_SPEED * 0.1  # Un poco más lento pero imponente
-        self.max_hp = cfg.ENEMY_MAX_HP * 1 # Mucha más vida
-        self.damage = 40                  # Mucho más daño
+        self.speed = cfg.ENEMY_SPEED * 0.8
+        self.max_hp = cfg.ENEMY_MAX_HP * 3
+        self.damage = 40
         self.hp = self.max_hp
         
         # Hacer el sprite del jefe más grande
@@ -113,7 +152,7 @@ class Boss(Enemy):
 
     def draw_hp(self, surface):
         """Barra de vida más grande y prominente para el jefe."""
-        w, h = self.rect.width * 1.5, 12 # Barra más ancha y gruesa
+        w, h = self.rect.width * 1.5, 12
         x = self.rect.centerx - w // 2
         y = self.rect.top - (h + 10)
         ratio = self.hp / self.max_hp if self.max_hp else 0

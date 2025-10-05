@@ -18,6 +18,7 @@ from scenario import Room, Exit
 from menus import main_menu, pause
 from menus.class_selection import class_selection_screen
 from menus.game_over import game_over_screen # <--- IMPORTADO (en vez de la función local)
+from shop import shop_screen  # <--- NUEVO: Importar la tienda
 
 # --- Constantes del Juego ---
 ENEMY_TYPES = ["basic", "fast", "tank"]
@@ -73,7 +74,7 @@ def loop_juego(screen, clock):
     enemies = pg.sprite.Group()
     bullets = pg.sprite.Group()          # Balas del jugador
     enemy_bullets = pg.sprite.Group()    # Balas de los enemigos
-    powerups = pg.sprite.Group()         # Power-ups
+    powerups = pg.sprite.Group()         # Power-ups (ya no se usan)
     consumables = pg.sprite.Group()
     exit_group = pg.sprite.Group()
     
@@ -134,17 +135,7 @@ def loop_juego(screen, clock):
         pending_enemies_to_spawn = level_data.enemies_to_spawn
         enemy_spawn_timer = 3.0 # Inicia el temporizador de 3 segundos
 
-        # ⭐ MERGE: Spawnea 3 power-ups en posiciones aleatorias seguras
-        for _ in range(3):
-            while True:
-                px = random.randint(cfg.TILESIZE, cfg.LOGICAL_WIDTH - cfg.TILESIZE * 2)
-                py = random.randint(cfg.TILESIZE, cfg.LOGICAL_HEIGHT - cfg.TILESIZE * 2)
-                temp_rect = pg.Rect(px, py, 24, 24)
-                if not any(wall.rect.colliderect(temp_rect) for wall in walls):
-                    p = PowerUp((px, py))
-                    powerups.add(p)
-                    all_sprites.add(p)
-                    break
+        # ⭐ SE ELIMINÓ: Ya no spawneamos power-ups amarillos
 
     # Carga inicial
     load_level(current_level_index)
@@ -170,34 +161,59 @@ def loop_juego(screen, clock):
             if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                 if pause.loop_pausa(clock) == "menu":
                     return
+            # --- NUEVO: Abrir tienda con tecla T ---
+            if event.type == pg.KEYDOWN and event.key == pg.K_t:
+                shop_screen(screen, clock, player, hud)
             if (event.type == pg.MOUSEBUTTONDOWN and event.button == 1 and time_to_fire <= 0.0):
                 b = Bullet(player.rect.center, logical_mouse_pos, damage=player.damage)
                 bullets.add(b)
                 all_sprites.add(b)
                 time_to_fire = player.fire_cooldown
 
-        # --- Lógica de Spawn ---
+        # --- Lógica de Spawn MEJORADA ---
         if enemy_spawn_timer > 0:
             enemy_spawn_timer -= dt
             if enemy_spawn_timer <= 0:
-                safe_zone = player.rect.inflate(cfg.TILESIZE * 6, cfg.TILESIZE * 6)
+                safe_zone = player.rect.inflate(cfg.TILESIZE * 8, cfg.TILESIZE * 8)  # Zona más grande
+                max_attempts = 50  # Límite de intentos para evitar loop infinito
+                
                 for enemy_type, count in pending_enemies_to_spawn:
                     for _ in range(count):
-                        while True:
-                            x = random.randint(cfg.TILESIZE, cfg.LOGICAL_WIDTH - cfg.TILESIZE)
-                            y = random.randint(cfg.TILESIZE, cfg.LOGICAL_HEIGHT - cfg.TILESIZE)
-                            enemy_rect = pg.Rect(x, y, 32, 32)
-                            # Asegurarse de no spawnear sobre el jugador o en una pared
-                            if not safe_zone.colliderect(enemy_rect) and not any(wall.rect.colliderect(enemy_rect) for wall in walls):
-                                break
-                                 # --- CORRECCIÓN: Usar la clase Boss si el tipo es "boss" ---
-                        if enemy_type == "boss":
-                            new_enemy = Boss((x, y))
-                        else:
-                            new_enemy = Enemy((x, y), enemy_type=enemy_type)
+                        spawned = False
+                        attempts = 0
                         
-                        enemies.add(new_enemy)
-                        all_sprites.add(new_enemy)
+                        while not spawned and attempts < max_attempts:
+                            attempts += 1
+                            
+                            # Generar posición en una celda válida del mapa
+                            tile_x = random.randint(1, game_map.tilewidth - 2)
+                            tile_y = random.randint(1, game_map.tileheight - 2)
+                            
+                            # Verificar que la celda sea suelo (no pared)
+                            if (0 <= tile_y < len(game_map.data) and 
+                                0 <= tile_x < len(game_map.data[0]) and 
+                                game_map.data[tile_y][tile_x] != '1'):
+                                
+                                x = tile_x * cfg.TILESIZE + cfg.TILESIZE // 2
+                                y = tile_y * cfg.TILESIZE + cfg.TILESIZE // 2
+                                enemy_rect = pg.Rect(x - 16, y - 16, 32, 32)
+                                
+                                # Verificar que no esté en safe_zone y no colisione con paredes
+                                if (not safe_zone.colliderect(enemy_rect) and 
+                                    not any(wall.rect.colliderect(enemy_rect) for wall in walls)):
+                                    
+                                    if enemy_type == "boss":
+                                        new_enemy = Boss((x, y))
+                                    else:
+                                        new_enemy = Enemy((x, y), enemy_type=enemy_type)
+                                    
+                                    enemies.add(new_enemy)
+                                    all_sprites.add(new_enemy)
+                                    spawned = True
+                        
+                        if not spawned and attempts >= max_attempts:
+                            print(f"Advertencia: No se pudo spawnear enemigo {enemy_type} después de {max_attempts} intentos")
+                
                 pending_enemies_to_spawn = []
 
         # Si todos los enemigos están muertos y no hay una salida, crearla
@@ -210,12 +226,14 @@ def loop_juego(screen, clock):
         # --- Actualizaciones ---
         player.tick_hit_cooldown(dt, 0.5)
         player.update(dt, keys)
-        enemies.update(dt, player.rect.center, enemy_bullets) # ⭐ MERGE: Pasa el grupo de balas enemigas
+        # --- MODIFICADO: Se añade walls como parámetro ---
+        enemies.update(dt, player.rect.center, enemy_bullets, walls)
         bullets.update(dt)
         enemy_bullets.update(dt) # ⭐ MERGE: Actualiza las balas enemigas
         powerups.update(dt)
         consumables.update(dt)
         hud.update(dt)
+        inventory_hud.update(dt) if hasattr(inventory_hud, 'update') else None
 
         # Colisión con paredes (movimiento)
         player.pos.x += player.vel.x * dt; player.rect.centerx = round(player.pos.x)
@@ -283,11 +301,7 @@ def loop_juego(screen, clock):
             except TypeError: item.apply(player) # Fallback
             inventory_hud.add(getattr(item, 'item_type', 'coin'))
 
-        # ⭐ MERGE: Jugador contra power-ups
-        picked_powerups = pg.sprite.spritecollide(player, powerups, True)
-        for p_up in picked_powerups:
-            p_up.apply(player)
-            hud.add_floating_text(p_up.effect.replace("_", " ").title(), p_up.rect.center, (255, 215, 0))
+        # --- SE ELIMINÓ: Colisión con power-ups (ya no existen) ---
 
         # --- Game Over ---
         if player.hp <= 0:
