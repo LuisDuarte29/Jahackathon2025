@@ -1,4 +1,3 @@
-# player.py
 import pygame as pg
 import settings as cfg
 from sprites import load_image, slice_spritesheet, Animation
@@ -55,11 +54,15 @@ class Player(pg.sprite.Sprite):
 
     # --- MÉTODOS DE LA CLASE ---
     def update(self, dt, keys):
+        # Reiniciar velocidad
         self.vel = pg.math.Vector2(0, 0)
+
+        # Movimiento con teclado (WASD o flechas)
         direction = pg.math.Vector2(
             (keys[pg.K_d] or keys[pg.K_RIGHT]) - (keys[pg.K_a] or keys[pg.K_LEFT]),
             (keys[pg.K_s] or keys[pg.K_DOWN]) - (keys[pg.K_w] or keys[pg.K_UP]),
         )
+
         if direction.length_squared() > 0:
             direction = direction.normalize()
             if direction.x < 0:
@@ -69,15 +72,15 @@ class Player(pg.sprite.Sprite):
                 self.facing = "right"
                 self.anim = self.anim_right
 
+        # Aplicar velocidad
         self.vel = direction * self.speed
-        self.pos += self.vel * dt
-        self.rect.center = self.pos
 
+        # Animación (más lenta si está quieto)
         moving = self.vel.length_squared() > 0
         self.anim.update(dt if moving else dt * 0.4)
         self.image = self.anim.frame()
 
-        # Control de disparo
+        # Control de cooldown de disparo
         if self._shoot_timer > 0:
             self._shoot_timer -= dt
 

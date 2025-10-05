@@ -112,30 +112,38 @@ def loop_juego(screen, clock):
             if ex is not None:
                 break
 
-        # Función auxiliar para buscar una tile transitable (prioriza borde)
-        def _find_transitable_tile():
-            # Buscar en bordes primero
-            candidates = []
-            if game_map.tilewidth >= 3 and game_map.tileheight >= 3:
-                for c in range(1, game_map.tilewidth - 1):
-                    if game_map.data[0][c] == "0":
-                        candidates.append((c, 0))
-                    if game_map.data[game_map.tileheight - 1][c] == "0":
-                        candidates.append((c, game_map.tileheight - 1))
-                for r in range(1, game_map.tileheight - 1):
-                    if game_map.data[r][0] == "0":
-                        candidates.append((0, r))
-                    if game_map.data[r][game_map.tilewidth - 1] == "0":
-                        candidates.append((game_map.tilewidth - 1, r))
+        # Función auxiliar: BFS desde la 'X' original para encontrar la tile
+        # transitable ('0') más cercana. Esto aumenta el alcance y evita
+        # seleccionar una tile muy lejana si hay opciones próximas.
+        from collections import deque
 
-            if candidates:
-                return random.choice(candidates)
+        def _find_transitable_tile_bfs(start_x, start_y):
+            w = game_map.tilewidth
+            h = game_map.tileheight
+            visited = [[False] * w for _ in range(h)]
+            q = deque()
+            q.append((start_x, start_y, 0))
+            visited[start_y][start_x] = True
 
-            # Si no hay candidatos en borde, buscar cualquier tile '0'
-            for r, row in enumerate(game_map.data):
-                for c, ch in enumerate(row):
+            best = None
+            while q:
+                x, y, dist = q.popleft()
+                # Priorizar encontrar una casilla '0' diferente a la 'X'
+                if 0 <= y < h and 0 <= x < w and game_map.data[y][x] == "0":
+                    return (x, y)
+
+                # Expandir vecinos (4-direcciones)
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and not visited[ny][nx]:
+                        visited[ny][nx] = True
+                        q.append((nx, ny, dist + 1))
+
+            # Si BFS no encontró nada (improbable), caer a búsqueda global
+            for ry, row in enumerate(game_map.data):
+                for rx, ch in enumerate(row):
                     if ch == "0":
-                        return (c, r)
+                        return (rx, ry)
             return None
 
         need_reposition = False
@@ -158,7 +166,7 @@ def loop_juego(screen, clock):
                 need_reposition = True
 
         if need_reposition:
-            found = _find_transitable_tile()
+            found = _find_transitable_tile_bfs()
             if found:
                 tx, ty = found
                 # Actualizar data: quitar 'X' previa y colocar nueva 'X'
@@ -344,20 +352,28 @@ def loop_juego(screen, clock):
         # Colisión con paredes (movimiento)
         player.pos.x += player.vel.x * dt
         player.rect.centerx = round(player.pos.x)
-        for wall in pg.sprite.spritecollide(player, walls, False):
+        collided_x = pg.sprite.spritecollide(player, walls, False)
+        if collided_x:
             if player.vel.x > 0:
-                player.rect.right = wall.rect.left
-            if player.vel.x < 0:
-                player.rect.left = wall.rect.right
+                # mover al borde más cercano a la izquierda
+                min_left = min(w.rect.left for w in collided_x)
+                player.rect.right = min_left
+            elif player.vel.x < 0:
+                # mover al borde más cercano a la derecha
+                max_right = max(w.rect.right for w in collided_x)
+                player.rect.left = max_right
             player.pos.x = player.rect.centerx
 
         player.pos.y += player.vel.y * dt
         player.rect.centery = round(player.pos.y)
-        for wall in pg.sprite.spritecollide(player, walls, False):
+        collided_y = pg.sprite.spritecollide(player, walls, False)
+        if collided_y:
             if player.vel.y > 0:
-                player.rect.bottom = wall.rect.top
-            if player.vel.y < 0:
-                player.rect.top = wall.rect.bottom
+                min_top = min(w.rect.top for w in collided_y)
+                player.rect.bottom = min_top
+            elif player.vel.y < 0:
+                max_bottom = max(w.rect.bottom for w in collided_y)
+                player.rect.top = max_bottom
             player.pos.y = player.rect.centery
 
         # --- Colisiones y Lógica de Combate ---
