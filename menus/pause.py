@@ -2,6 +2,8 @@ import pygame as pg
 import sys
 import settings as cfg
 from .options import loop_options
+from menus.main_menu import loop_menu
+import game
 
 # Opciones del menú de pausa
 opciones = ["Seguir", "Opciones", "Salir al menú"]
@@ -72,7 +74,8 @@ def loop_pausa(clock):
                     elif accion == "Opciones":
                         loop_options(clock)
                     elif accion == "Salir al menú":
-                        return "menu"
+                         loop_menu(clock,game.loop_juego)
+                    
 
             # Click del mouse
             if evento.type == pg.MOUSEBUTTONDOWN and evento.button == 1:
@@ -86,7 +89,7 @@ def loop_pausa(clock):
                         elif accion == "Opciones":
                             loop_options(clock)
                         elif accion == "Salir al menú":
-                            return "menu"
+                         loop_menu(clock,game.loop_juego)
 
         pg.display.flip()
         clock.tick(cfg.FPS)

@@ -150,6 +150,7 @@ def loop_menu(clock, loop_juego):
                         opcion_seleccionada = i
                         accion = opciones[i]
                         if accion == "Jugar":
+                            print(cfg.VENTANA, clock)
                             return loop_juego(cfg.VENTANA, clock)
                         elif accion == "Opciones":
                             loop_options(clock)
