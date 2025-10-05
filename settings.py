@@ -50,9 +50,9 @@ FIRE_COOLDOWN = 0.18
 
 # --- Clases de personaje ---
 CLASSES = {
-    "Warrior": {"hp": 140, "speed": 220, "damage": 34, "cooldown": 0.25},
-    "Rogue": {"hp": 80, "speed": 300, "damage": 28, "cooldown": 0.12},
-    "Mage": {"hp": 100, "speed": 260, "damage": 42, "cooldown": 0.20},
+    "Juggernaut": {"hp": 140, "speed": 220, "damage": 34, "cooldown": 0.25},
+    "Assault": {"hp": 80, "speed": 300, "damage": 28, "cooldown": 0.12},
+    "Blaster": {"hp": 100, "speed": 260, "damage": 42, "cooldown": 0.20},
 }
 
 # --- Probabilidades y drops ---

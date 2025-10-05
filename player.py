@@ -5,60 +5,70 @@ from bullet import Bullet  # Sistema de balas
 
 # --- Definición de clases jugables ---
 CLASSES = {
-    "Warrior": {"hp": 120, "speed": 220, "damage": 28, "cooldown": 0.25},
-    "Rogue": {"hp": 80, "speed": 300, "damage": 20, "cooldown": 0.15},
-    "Mage": {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
+    "Juggernaut": {"hp": 120, "speed": 220, "damage": 28, "cooldown": 0.25},
+    "Assault": {"hp": 80, "speed": 300, "damage": 20, "cooldown": 0.15},
+    "Blaster": {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
 }
 
-# Tamaño objetivo de sprites
+# Tamaño objetivo (escala final de todos los sprites)
 PLAYER_SCALE = (32, 32)
 
-# Debug de carga
 print("PLAYER LOADED FROM:", __file__)
 
-
 class Player(pg.sprite.Sprite):
-    def __init__(self, pos, class_name="Warrior"):
+    def __init__(self, pos, class_name="Juggernaut"):
         super().__init__()
+        self.class_name = class_name
 
-        frame_w, frame_h = 21, 11  # tamaño original de cada frame
-        cols, rows = 4, 1  # 4 frames por dirección
+        # --- Configuración específica por clase ---
+        if class_name == "Juggernaut":
+            frame_w, frame_h = 21, 11
+            cols, rows = 4, 1
+            base_path = "assets/juggernaut_"
+            spf = 0.12
 
-        # --- Animaciones en 4 direcciones ---
+        elif class_name == "Assault":
+            frame_w, frame_h = 48, 64
+            cols, rows = 3, 1
+            base_path = "assets/assault_"
+            spf = 0.15  # 150ms por frame
+
+        elif class_name == "Blaster":
+            frame_w, frame_h = 21, 11
+            cols, rows = 4, 1
+            base_path = "assets/blaster_"
+            spf = 0.12
+
+        else:
+            raise ValueError(f"Clase desconocida: {class_name}")
+
+        # --- Animaciones por dirección ---
         self.anim_up = Animation(
-            slice_spritesheet(
-                load_image("assets/player_norte.png"), frame_w, frame_h, cols, rows
-            ),
-            sec_per_frame=0.12,
+            slice_spritesheet(load_image(f"{base_path}norte.png"), frame_w, frame_h, cols, rows),
+            sec_per_frame=spf,
             loop=True,
             scale=PLAYER_SCALE,
         )
         self.anim_down = Animation(
-            slice_spritesheet(
-                load_image("assets/player_sur.png"), frame_w, frame_h, cols, rows
-            ),
-            sec_per_frame=0.12,
+            slice_spritesheet(load_image(f"{base_path}sur.png"), frame_w, frame_h, cols, rows),
+            sec_per_frame=spf,
             loop=True,
             scale=PLAYER_SCALE,
         )
         self.anim_right = Animation(
-            slice_spritesheet(
-                load_image("assets/player_este.png"), frame_w, frame_h, cols, rows
-            ),
-            sec_per_frame=0.12,
+            slice_spritesheet(load_image(f"{base_path}este.png"), frame_w, frame_h, cols, rows),
+            sec_per_frame=spf,
             loop=True,
             scale=PLAYER_SCALE,
         )
         self.anim_left = Animation(
-            slice_spritesheet(
-                load_image("assets/player_oeste.png"), frame_w, frame_h, cols, rows
-            ),
-            sec_per_frame=0.12,
+            slice_spritesheet(load_image(f"{base_path}oeste.png"), frame_w, frame_h, cols, rows),
+            sec_per_frame=spf,
             loop=True,
             scale=PLAYER_SCALE,
         )
 
-        # Animación inicial
+        # --- Animación inicial ---
         self.facing = "down"
         self.anim = self.anim_down
         self.image = self.anim.frame()
@@ -66,9 +76,8 @@ class Player(pg.sprite.Sprite):
         self.pos = pg.math.Vector2(self.rect.center)
         self.vel = pg.math.Vector2(0, 0)
 
-        # --- Sistema de clases ---
-        self.class_name = class_name
-        stats = CLASSES.get(class_name, CLASSES["Warrior"])
+        # --- Stats de la clase ---
+        stats = CLASSES.get(class_name, CLASSES["Juggernaut"])
         self.speed = stats["speed"]
         self.hp = stats["hp"]
         self.max_hp = stats["hp"]
@@ -89,7 +98,6 @@ class Player(pg.sprite.Sprite):
 
         if direction.length_squared() > 0:
             direction = direction.normalize()
-            # --- Cambiar animación según dirección ---
             if abs(direction.y) > abs(direction.x):
                 self.facing = "up" if direction.y < 0 else "down"
             else:
@@ -99,8 +107,7 @@ class Player(pg.sprite.Sprite):
             self.anim.update(dt)
             self.image = self.anim.frame()
         else:
-            # Idle → primer frame de la animación actual
-            self.image = self.anim.frames[0]
+            self.image = self.anim.frames[0]  # Idle
 
         # Movimiento
         self.vel = direction * self.speed
@@ -113,7 +120,6 @@ class Player(pg.sprite.Sprite):
 
     # --- Disparos ---
     def shoot(self, target_pos, bullet_group):
-        """Dispara una bala hacia la posición del mouse (target_pos)."""
         if self._shoot_timer <= 0:
             bullet = Bullet(
                 start_pos=self.rect.center,

@@ -34,11 +34,26 @@ def load_image(name_or_path: str) -> pg.Surface:
 
 def slice_spritesheet(sheet: pg.Surface, frame_w: int, frame_h: int, cols: int, rows: int):
     frames = []
+    sheet_w, sheet_h = sheet.get_size()
+
+    print(f"[DEBUG] Cortando spritesheet de {sheet_w}x{sheet_h} en {cols}x{rows} frames ({frame_w}x{frame_h} cada uno)")
+
     for r in range(rows):
         for c in range(cols):
-            rect = pg.Rect(c * frame_w, r * frame_h, frame_w, frame_h)
+            x = c * frame_w
+            y = r * frame_h
+
+            # Evitar que el rectángulo se salga de la superficie
+            if x + frame_w > sheet_w or y + frame_h > sheet_h:
+                print(f"[WARN] Frame fuera de rango: x={x}, y={y}, w={frame_w}, h={frame_h}")
+                continue
+
+            rect = pg.Rect(x, y, frame_w, frame_h)
             frames.append(sheet.subsurface(rect).copy())
+
+    print(f"[DEBUG] Total frames generados: {len(frames)}")
     return frames
+
 
 class Animation:
     def __init__(self, frames, sec_per_frame=0.12, loop=True, scale=None):
