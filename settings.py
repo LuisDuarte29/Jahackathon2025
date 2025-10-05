@@ -9,6 +9,10 @@ info = pygame.display.Info()
 ANCHO, ALTO = info.current_w, info.current_h
 VENTANA = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
 
+# Basado en los mapas de 20x12 tiles (20*64=1280, 12*64=768)
+LOGICAL_WIDTH = 1280
+LOGICAL_HEIGHT = 768
+
 # Resolución base para escalado
 BASE_ANCHO, BASE_ALTO = 1280, 720
 escala_x = ANCHO / BASE_ANCHO

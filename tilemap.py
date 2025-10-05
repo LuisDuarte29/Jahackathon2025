@@ -1,56 +1,60 @@
 import pygame as pg
 import settings as cfg
-import random
+from sprites import load_image # Usamos la función de sprites.py para cargar imágenes
 
 class Tile(pg.sprite.Sprite):
-    def __init__(self, x, y, width, height, tile_type='wall'):
+    """Representa una única baldosa del mapa, usando una imagen."""
+    def __init__(self, x, y, image):
         super().__init__()
-        self.tile_type = tile_type
-        self.image = pg.Surface((width, height))
-        if self.tile_type == 'wall':
-            # Puedes reemplazar esto con una imagen de muro más adelante
-            self.image.fill(cfg.GRAY)
-        else:
-            self.image.fill(cfg.BG_COLOR)
+        self.image = image
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
 
 class Map:
-    def __init__(self):
-        # 1. Calcular cuántas baldosas caben en la pantalla
-        self.tiles_x = cfg.ANCHO // cfg.TILESIZE
-        self.tiles_y = cfg.ALTO // cfg.TILESIZE
-
-        self.width = self.tiles_x * cfg.TILESIZE
-        self.height = self.tiles_y * cfg.TILESIZE
-
-        # 2. Generar el mapa dinámicamente
+    def __init__(self, filename):
+        # --- CORRECCIÓN: Se especifica la ruta desde la carpeta 'assets' ---
+        # Cargamos las imágenes originales de los assets.
+        wall_img = load_image('assets/wall.png')
+        floor_img = load_image('assets/floor.png')
+        
+        # Escalamos las imágenes al tamaño definido en TILESIZE
+        self.wall_image = pg.transform.scale(wall_img, (cfg.TILESIZE, cfg.TILESIZE))
+        self.floor_image = pg.transform.scale(floor_img, (cfg.TILESIZE, cfg.TILESIZE))
+        
+        # Leemos el archivo de mapa
         self.data = []
-        for r in range(self.tiles_y):
-            row = []
-            for c in range(self.tiles_x):
-                # 3. Poner muros ('1') en los bordes y suelo ('0') en el centro
-                if r == 0 or r == self.tiles_y - 1 or c == 0 or c == self.tiles_x - 1:
-                    row.append('1')
-                else:
-                    # Opcional: Para que no sea un cuarto vacío, podemos añadir
-                    # algunos muros internos de forma aleatoria.
-                    if random.random() < 0.04: # 4% de probabilidad de que sea un muro
-                         row.append('1')
-                    else:
-                         row.append('0')
-            self.data.append("".join(row))
+        with open(filename, 'rt') as f:
+            for line in f:
+                self.data.append(line.strip())
+        self.tilewidth = len(self.data[0])
+        self.tileheight = len(self.data)
+        
+        # Creamos una imagen de fondo pre-renderizada para el suelo
+        self.background_image = pg.Surface((self.tilewidth * cfg.TILESIZE, self.tileheight * cfg.TILESIZE))
+        self.render_background()
+
+    def render_background(self):
+        """Dibuja todas las baldosas de suelo en la imagen de fondo."""
+        for row, tiles in enumerate(self.data):
+            for col, tile in enumerate(tiles):
+                # Usamos la imagen de suelo cargada
+                self.background_image.blit(self.floor_image, (col * cfg.TILESIZE, row * cfg.TILESIZE))
 
     def render(self, surface):
-        for row, tiles in enumerate(self.data):
-            for col, tile in enumerate(tiles):
-                if tile == '1':
-                    pg.draw.rect(surface, cfg.GRAY, (col * cfg.TILESIZE, row * cfg.TILESIZE, cfg.TILESIZE, cfg.TILESIZE))
+        """Dibuja el fondo y los muros en la superficie del juego."""
+        # Dibuja el suelo
+        surface.blit(self.background_image, (0, 0))
+        # Dibuja los muros (que son sprites y se dibujan en el bucle principal)
 
     def make_map(self):
+        """Crea los sprites de los muros a partir del archivo de mapa."""
         self.walls = pg.sprite.Group()
+        self.exit_pos = None
         for row, tiles in enumerate(self.data):
             for col, tile in enumerate(tiles):
                 if tile == '1':
-                    self.walls.add(Tile(col * cfg.TILESIZE, row * cfg.TILESIZE, cfg.TILESIZE, cfg.TILESIZE))
-        return self.walls
+                    # Añade un muro usando la imagen de muro cargada
+                    self.walls.add(Tile(col * cfg.TILESIZE, row * cfg.TILESIZE, self.wall_image))
+                elif tile == 'X':
+                    self.exit_pos = (col * cfg.TILESIZE, row * cfg.TILESIZE)
+        return self.walls, self.exit_pos
