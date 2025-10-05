@@ -53,49 +53,50 @@ def dibujar_titulo(screen, tiempo):
     screen.blit(render, rect)
 
 
-def dibujar_barra(screen, x, y, valor, max_valor, ancho=100, alto=10, color=(0, 200, 0)):
+def dibujar_barra(screen, x, y, valor, max_valor, ancho=80, alto=8, color=(0, 200, 0)):
     ratio = min(valor / max_valor, 1.0)
-    # Fondo de la barra
     pg.draw.rect(screen, (50, 50, 50), (x, y, ancho, alto), border_radius=4)
-    # Barra de progreso
     pg.draw.rect(screen, color, (x, y, int(ancho * ratio), alto), border_radius=4)
-    # Borde
     pg.draw.rect(screen, (100, 100, 100), (x, y, ancho, alto), width=1, border_radius=4)
 
 
 def cargar_imagen_clase(clase_nombre):
-    """
-    Intenta cargar la imagen de la clase desde la carpeta assets
-    Si no existe, retorna None y se usará el placeholder
-    
-    Estructura esperada:
-    assets/
-            mago.png
-            tanque.png
-            guerrero.png
-    """
+    mapping = {
+        "Juggernaut": ("juggernaut_sur", 4),
+        "Blaster": ("blaster_sur", 4),
+        "Assault": ("assault_sur", 3),
+    }
+    archivo_info = mapping.get(clase_nombre, (clase_nombre.lower(), 1))
+    nombre_archivo, frames_count = archivo_info
+
     try:
-        ruta = os.path.join("assets", f"{clase_nombre.lower()}.png")
+        ruta = os.path.join("assets", f"{nombre_archivo}.png")
         if os.path.exists(ruta):
-            imagen = pg.image.load(ruta).convert_alpha()
-  
-            # Escalar la imagen al tamaño del placeholder (80x80)
-            return pg.transform.scale(imagen, (80, 80))
+            sheet = pg.image.load(ruta).convert_alpha()
+            frame_w = sheet.get_width() // frames_count
+            frame_h = sheet.get_height()
+            frame = sheet.subsurface((0, 0, frame_w, frame_h))
+
+            max_dim = 80
+            scale_factor = min(max_dim / frame_w, max_dim / frame_h)
+            new_w = int(frame_w * scale_factor)
+            new_h = int(frame_h * scale_factor)
+            frame_scaled = pg.transform.smoothscale(frame, (new_w, new_h))
+            return frame_scaled
     except Exception as e:
         print(f"No se pudo cargar imagen para {clase_nombre}: {e}")
     return None
 
 
 def dibujar_clases(screen, mouse_pos=None, mouse_pressed=False):
-    fuente_nombre = cfg.get_fuente(0.045)  # Fuente para el nombre de la clase
-    fuente_stats = cfg.get_fuente(0.03)    # Fuente más pequeña para stats
-    fuente_cd = cfg.get_fuente(0.028)      # Fuente para cooldown
+    fuente_nombre = cfg.get_fuente(0.038)
+    fuente_stats = cfg.get_fuente(0.024)
+    fuente_cd = cfg.get_fuente(0.022)
 
     clases = list(cfg.CLASSES.keys())
     rects = []
     hover_index = -1
 
-    # Distribución horizontal centrada
     espacio_x = 280
     ancho_total = (len(clases) - 1) * espacio_x
     inicio_x = (cfg.ANCHO // 2) - (ancho_total // 2)
@@ -112,81 +113,56 @@ def dibujar_clases(screen, mouse_pos=None, mouse_pressed=False):
         rect = rects[i]
         data = cfg.CLASSES[cls]
 
-        # Borde destacado si hay hover
         if i == hover_index:
             pg.draw.rect(screen, cfg.ROJO, rect.inflate(12, 12), border_radius=14)
-        
-        # Fondo de la tarjeta
+
         pg.draw.rect(screen, (30, 30, 50), rect, border_radius=12)
-        # Borde de la tarjeta
         pg.draw.rect(screen, (200, 200, 200), rect, width=2, border_radius=12)
 
-        # ===== ÁREA DE IMAGEN (antes placeholder lila) =====
-        skin_rect = pg.Rect(0, 0, 80, 80)
-        skin_rect.center = (rect.centerx, rect.top + 55)
-        
-        # Intentar cargar imagen de la clase
+        # ===== ÁREA DE IMAGEN =====
         imagen_clase = cargar_imagen_clase(cls)
-        
         if imagen_clase:
-            # Si existe la imagen, mostrarla
-            screen.blit(imagen_clase, skin_rect)
-       
+            img_rect = imagen_clase.get_rect(center=(rect.centerx, rect.top + 60))
+            screen.blit(imagen_clase, img_rect)
         else:
-            # Si no existe, mostrar placeholder
-            pg.draw.rect(screen, (100, 100, 250), skin_rect, border_radius=8)
-          
-        
-        # Borde del área de imagen
-        pg.draw.rect(screen, (150, 150, 150), skin_rect, width=2, border_radius=8)
+            placeholder_rect = pg.Rect(0, 0, 80, 80)
+            placeholder_rect.center = (rect.centerx, rect.top + 60)
+            pg.draw.rect(screen, (100, 100, 250), placeholder_rect, border_radius=8)
+            pg.draw.rect(screen, (150, 150, 150), placeholder_rect, width=2, border_radius=8)
 
         # ===== NOMBRE DE LA CLASE =====
         text = fuente_nombre.render(cls, True, cfg.BLANCO)
-        screen.blit(text, text.get_rect(center=(rect.centerx, rect.top + 115)))
+        text_rect = text.get_rect(center=(rect.centerx, rect.top + 110))
+        screen.blit(text, text_rect)
 
-        # ===== ESTADÍSTICAS CON BARRAS =====
+        # ===== ESTADÍSTICAS =====
         stats = [
             ("Vida", data["hp"], 150, (0, 200, 0)),
             ("Velocidad", data["speed"], 350, (0, 150, 200)),
             ("Daño", data["damage"], 50, (200, 200, 0)),
         ]
-        
-        y_inicial_stats = rect.top + 150
-        espacio_entre_stats = 50
-        
+        y_inicial_stats = rect.top + 130
+        espacio_entre_stats = 50  # suficiente espacio vertical
+
         for j, (nombre, val, max_val, color) in enumerate(stats):
             y_pos = y_inicial_stats + j * espacio_entre_stats
-            
-            # Texto: "Nombre: valor"
+            # Texto encima de la barra
             label = fuente_stats.render(f"{nombre}: {val}", True, cfg.BLANCO)
             label_rect = label.get_rect(centerx=rect.centerx, top=y_pos)
             screen.blit(label, label_rect)
-            
             # Barra debajo del texto
-            barra_y = y_pos + 20
-            dibujar_barra(
-                screen,
-                rect.centerx - 50,  # Centrada, 100px de ancho
-                barra_y,
-                val,
-                max_val,
-                ancho=100,
-                alto=10,
-                color=color
-            )
+            dibujar_barra(screen, rect.centerx - 40, y_pos + 16, val, max_val, ancho=80, alto=8, color=color)
 
-        # ===== COOLDOWN EN LA PARTE INFERIOR =====
+        # ===== COOLDOWN =====
         cd_label = fuente_cd.render(f"Cooldown: {data['cooldown']}s", True, (180, 180, 180))
-        screen.blit(
-            cd_label, cd_label.get_rect(center=(rect.centerx, rect.bottom - 20))
-        )
+        cd_rect = cd_label.get_rect(center=(rect.centerx, rect.bottom - 18))
+        screen.blit(cd_label, cd_rect)
 
     return rects, hover_index
 
 
 def class_selection_screen(screen, clock):
     tiempo = 0
-
     while True:
         dt = clock.tick(cfg.FPS) / 1000.0
         tiempo += dt
