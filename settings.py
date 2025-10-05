@@ -75,6 +75,13 @@ GREEN = VERDE
 BG_COLOR = BG
 ENEMY_COL = ENEMY_COLOR
 
+# Colores de balas por clase
+BULLET_COLORS = {
+    "Warrior": (255, 100, 100),  # rojo intenso
+    "Rogue": (100, 255, 100),  # verde
+    "Mage": (100, 150, 255),  # azul
+}
+
 # scale aliases
 SCALE_X, SCALE_Y = escala_x, escala_y
 # --- Tilemap Settings ---
