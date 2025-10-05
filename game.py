@@ -3,6 +3,7 @@ import pygame as pg
 import random
 import settings as cfg
 
+
 # --- Clases de Entidades y Módulos ---
 from player import Player
 from enemy import Enemy, Boss
@@ -339,7 +340,7 @@ def loop_juego(screen, clock):
 
         # --- Actualizaciones ---
         player.tick_hit_cooldown(dt, 0.5)
-        player.update(dt, keys)
+        player.update(dt, keys, walls)
         # --- MODIFICADO: Se añade walls como parámetro ---
         enemies.update(dt, player.rect.center, enemy_bullets, walls)
         bullets.update(dt)

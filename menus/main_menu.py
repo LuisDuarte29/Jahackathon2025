@@ -43,7 +43,7 @@ def dibujar_fondo():
 def dibujar_titulo(tiempo):
     """Dibuja el título animado con efecto respiración y flotación"""
     fuente = cfg.get_fuente(0.15)
-    texto = "Titulo del juego"  # Nombre del juego
+    texto = "Alien Slayer"  # Nombre del juego
 
     # Efecto respiración (brillo)
     alpha = int((math.sin(tiempo * 2) + 1) * 127)

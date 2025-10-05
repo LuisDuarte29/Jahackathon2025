@@ -3,14 +3,12 @@ import settings as cfg
 from sprites import load_image, slice_spritesheet, Animation
 from bullet import Bullet  # Sistema de balas
 
-# --- Definición de clases jugables ---
 CLASSES = {
     "Juggernaut": {"hp": 120, "speed": 220, "damage": 28, "cooldown": 0.25},
     "Assault": {"hp": 80, "speed": 300, "damage": 20, "cooldown": 0.15},
     "Blaster": {"hp": 100, "speed": 260, "damage": 34, "cooldown": 0.20},
 }
 
-# Tamaño objetivo (escala final de todos los sprites)
 PLAYER_SCALE = (32, 32)
 
 print("PLAYER LOADED FROM:", __file__)
@@ -20,29 +18,24 @@ class Player(pg.sprite.Sprite):
         super().__init__()
         self.class_name = class_name
 
-        # --- Configuración específica por clase ---
         if class_name == "Juggernaut":
             frame_w, frame_h = 21, 11
             cols, rows = 4, 1
             base_path = "assets/juggernaut_"
             spf = 0.12
-
         elif class_name == "Assault":
             frame_w, frame_h = 48, 64
             cols, rows = 3, 1
             base_path = "assets/assault_"
-            spf = 0.15  # 150ms por frame
-
+            spf = 0.15
         elif class_name == "Blaster":
             frame_w, frame_h = 21, 11
             cols, rows = 4, 1
             base_path = "assets/blaster_"
             spf = 0.12
-
         else:
             raise ValueError(f"Clase desconocida: {class_name}")
 
-        # --- Animaciones por dirección ---
         self.anim_up = Animation(
             slice_spritesheet(load_image(f"{base_path}norte.png"), frame_w, frame_h, cols, rows),
             sec_per_frame=spf,
@@ -68,7 +61,6 @@ class Player(pg.sprite.Sprite):
             scale=PLAYER_SCALE,
         )
 
-        # --- Animación inicial ---
         self.facing = "down"
         self.anim = self.anim_down
         self.image = self.anim.frame()
@@ -76,7 +68,6 @@ class Player(pg.sprite.Sprite):
         self.pos = pg.math.Vector2(self.rect.center)
         self.vel = pg.math.Vector2(0, 0)
 
-        # --- Stats de la clase ---
         stats = CLASSES.get(class_name, CLASSES["Juggernaut"])
         self.speed = stats["speed"]
         self.hp = stats["hp"]
@@ -84,12 +75,11 @@ class Player(pg.sprite.Sprite):
         self.damage = stats["damage"]
         self.fire_cooldown = stats["cooldown"]
 
-        # Timers
         self._hit_timer = 0.0
         self._shoot_timer = 0.0
 
-    # --- Movimiento y animación ---
-    def update(self, dt, keys):
+    # --- MOVIMIENTO Y ANIMACIÓN CON PAREDES ---
+    def update(self, dt, keys, walls_group):
         self.vel = pg.math.Vector2(0, 0)
         direction = pg.math.Vector2(
             (keys[pg.K_d] or keys[pg.K_RIGHT]) - (keys[pg.K_a] or keys[pg.K_LEFT]),
@@ -107,18 +97,38 @@ class Player(pg.sprite.Sprite):
             self.anim.update(dt)
             self.image = self.anim.frame()
         else:
-            self.image = self.anim.frames[0]  # Idle
+            self.image = self.anim.frames[0]
 
-        # Movimiento
+        # Movimiento con colisiones
+        # Eje X
+        self.pos.x += direction.x * self.speed * dt
+        self.rect.centerx = round(self.pos.x)
+        collided_x = pg.sprite.spritecollide(self, walls_group, False)
+        for wall in collided_x:
+            if direction.x > 0:
+                self.rect.right = wall.rect.left
+            elif direction.x < 0:
+                self.rect.left = wall.rect.right
+            self.pos.x = self.rect.centerx
+
+        # Eje Y
+        self.pos.y += direction.y * self.speed * dt
+        self.rect.centery = round(self.pos.y)
+        collided_y = pg.sprite.spritecollide(self, walls_group, False)
+        for wall in collided_y:
+            if direction.y > 0:
+                self.rect.bottom = wall.rect.top
+            elif direction.y < 0:
+                self.rect.top = wall.rect.bottom
+            self.pos.y = self.rect.centery
+
         self.vel = direction * self.speed
-        self.pos += self.vel * dt
-        self.rect.center = self.pos
 
         # Cooldown de disparos
         if self._shoot_timer > 0:
             self._shoot_timer -= dt
 
-    # --- Disparos ---
+    # --- RESTO DE MÉTODOS (shoot, apply_damage, tick_hit_cooldown, draw_health_bar...) ---
     def shoot(self, target_pos, bullet_group):
         if self._shoot_timer <= 0:
             bullet = Bullet(
@@ -130,7 +140,6 @@ class Player(pg.sprite.Sprite):
             bullet_group.add(bullet)
             self._shoot_timer = self.fire_cooldown
 
-    # --- Daño y cooldown ---
     def apply_damage(self, dmg):
         self.hp = max(0, self.hp - int(dmg))
 
@@ -143,7 +152,6 @@ class Player(pg.sprite.Sprite):
     def trigger_hit_cooldown(self, cooldown_s):
         self._hit_timer = cooldown_s
 
-    # --- Barra de vida ---
     def draw_health_bar(self, surface):
         w, h = self.rect.width, 6
         x = self.rect.centerx - w // 2
@@ -153,7 +161,6 @@ class Player(pg.sprite.Sprite):
         fg_color = cfg.RED if ratio < 0.35 else cfg.WHITE
         pg.draw.rect(surface, fg_color, (x, y, int(w * ratio), h), border_radius=3)
 
-    # --- Power-ups ---
     def apply_powerup(self, powerup_type, value):
         if powerup_type == "hp":
             self.hp = min(self.max_hp, self.hp + value)
