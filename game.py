@@ -34,13 +34,18 @@ cfg.CONSUMABLE_DROP_RATE = getattr(cfg, "CONSUMABLE_DROP_RATE", 0.2)
 def loop_juego(screen, clock):
     # --- Configuración Inicial del Nivel ---
     levels = [
-        Room("map_A1_forest.txt", enemies_to_spawn=[("basic", 3), ("fast", 2)]),
-        Room("map_A2_ruins.txt", enemies_to_spawn=[("tank", 2), ("fast", 3)]),
-        Room("map_B1_cave.txt", enemies_to_spawn=[("fast", 5)]),
-        Room("map_B2_lab.txt", enemies_to_spawn=[("basic", 2), ("tank", 3)]),
+        # Sala aleatoria generada proceduralmente
+        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
         Room("map_C1_boss.txt", enemies_to_spawn=[("boss", 1)]),  # <-- NIVEL DEL JEFE
     ]
     current_level_index = 0
+    # Historial de niveles para poder regresar
+    level_history = []
 
     # Superficie lógica para escalado de resolución
     game_surface = pg.Surface((cfg.LOGICAL_WIDTH, cfg.LOGICAL_HEIGHT))
@@ -95,6 +100,84 @@ def loop_juego(screen, clock):
         walls.add(new_walls)
         all_sprites.add(walls)
         exit_pos = new_exit_pos
+
+        # Si la salida está bloqueada por muros, reposicionarla a una tile transitable
+        # Buscamos la coordenada de la 'X' en el mapa (si existe)
+        ex = ey = None
+        for r, row in enumerate(game_map.data):
+            for c, ch in enumerate(row):
+                if ch == "X":
+                    ex, ey = c, r
+                    break
+            if ex is not None:
+                break
+
+        # Función auxiliar para buscar una tile transitable (prioriza borde)
+        def _find_transitable_tile():
+            # Buscar en bordes primero
+            candidates = []
+            if game_map.tilewidth >= 3 and game_map.tileheight >= 3:
+                for c in range(1, game_map.tilewidth - 1):
+                    if game_map.data[0][c] == "0":
+                        candidates.append((c, 0))
+                    if game_map.data[game_map.tileheight - 1][c] == "0":
+                        candidates.append((c, game_map.tileheight - 1))
+                for r in range(1, game_map.tileheight - 1):
+                    if game_map.data[r][0] == "0":
+                        candidates.append((0, r))
+                    if game_map.data[r][game_map.tilewidth - 1] == "0":
+                        candidates.append((game_map.tilewidth - 1, r))
+
+            if candidates:
+                return random.choice(candidates)
+
+            # Si no hay candidatos en borde, buscar cualquier tile '0'
+            for r, row in enumerate(game_map.data):
+                for c, ch in enumerate(row):
+                    if ch == "0":
+                        return (c, r)
+            return None
+
+        need_reposition = False
+        if ex is None:
+            need_reposition = True
+        else:
+            # comprobar 3x3 alrededor de la salida para al menos una tile transitable
+            has_open = False
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    nx = ex + dc
+                    ny = ey + dr
+                    if 0 <= ny < game_map.tileheight and 0 <= nx < game_map.tilewidth:
+                        if game_map.data[ny][nx] != "1":
+                            has_open = True
+                            break
+                if has_open:
+                    break
+            if not has_open:
+                need_reposition = True
+
+        if need_reposition:
+            found = _find_transitable_tile()
+            if found:
+                tx, ty = found
+                # Actualizar data: quitar 'X' previa y colocar nueva 'X'
+                grid = [list(r) for r in game_map.data]
+                if ex is not None:
+                    grid[ey][ex] = "0"
+                grid[ty][tx] = "X"
+                game_map.data = ["".join(r) for r in grid]
+
+                # Si había un muro en la nueva posicion, eliminarlo del grupo
+                tile_center = (
+                    tx * cfg.TILESIZE + cfg.TILESIZE // 2,
+                    ty * cfg.TILESIZE + cfg.TILESIZE // 2,
+                )
+                for w in list(walls):
+                    if w.rect.collidepoint(tile_center):
+                        w.kill()
+
+                exit_pos = tile_center
 
         # Reposicionar al jugador en un lugar seguro del nuevo mapa
         center_tile_x = cfg.LOGICAL_WIDTH // (cfg.TILESIZE * 2)
@@ -159,6 +242,13 @@ def loop_juego(screen, clock):
             # --- NUEVO: Abrir tienda con tecla T ---
             if event.type == pg.KEYDOWN and event.key == pg.K_t:
                 shop_screen(screen, clock, player, hud)
+            # Volver a la habitación anterior
+            if event.type == pg.KEYDOWN and event.key == pg.K_b:
+                if level_history:
+                    prev_index = level_history.pop()
+                    current_level_index = prev_index
+                    load_level(current_level_index)
+                    continue
             if (
                 event.type == pg.MOUSEBUTTONDOWN
                 and event.button == 1
@@ -273,6 +363,8 @@ def loop_juego(screen, clock):
         # --- Colisiones y Lógica de Combate ---
         # Jugador choca con la salida
         if pg.sprite.spritecollide(player, exit_group, False):
+            # Guardar nivel actual en el historial y avanzar
+            level_history.append(current_level_index)
             current_level_index += 1
             if current_level_index < len(levels):
                 load_level(current_level_index)
