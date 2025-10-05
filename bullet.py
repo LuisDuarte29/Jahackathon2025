@@ -10,11 +10,14 @@ class Bullet(pg.sprite.Sprite):
 
         # Imagen de la bala
         self.image = pg.Surface(cfg.BULLET_SIZE, pg.SRCALPHA)
-        self.image.fill(bullet_color)
+        self.radius = cfg.BULLET_SIZE[0] // 2
+        center = (self.radius, self.radius)
+        pg.draw.circle(self.image, bullet_color, center, self.radius)
         self.rect = self.image.get_rect(center=start_pos)
 
         # Vector hacia el objetivo (click del mouse)
-        dir_vec = pg.math.Vector2(target_pos) - pg.math.Vector2(start_pos)
+        self.pos = pg.math.Vector2(start_pos)
+        dir_vec = pg.math.Vector2(target_pos) - self.pos
         if dir_vec.length_squared() == 0:
             dir_vec = pg.math.Vector2(0, -1)  # evita división por cero
         self.vel = dir_vec.normalize() * cfg.BULLET_SPEED
@@ -27,8 +30,8 @@ class Bullet(pg.sprite.Sprite):
 
     def update(self, dt):
         """Actualiza posición y vida de la bala"""
-        self.rect.x += int(self.vel.x * dt)
-        self.rect.y += int(self.vel.y * dt)
+        self.pos += self.vel * dt
+        self.rect.center = self.pos
 
         # Reducir vida
         self.life -= dt
@@ -48,9 +51,10 @@ class Bullet(pg.sprite.Sprite):
 class EnemyBullet(pg.sprite.Sprite):
     def __init__(self, pos, target_pos, damage=10, speed=300):
         super().__init__()
-        self.image = pg.Surface((8, 8))
-        self.image.fill((200, 50, 50))
+        self.image = pg.Surface((8, 8), pg.SRCALPHA)
+        pg.draw.circle(self.image, (200, 50, 50), (4, 4), 4)
         self.rect = self.image.get_rect(center=pos)
+
         self.pos = pg.math.Vector2(pos)
         self.target = pg.math.Vector2(target_pos)
         self.speed = speed
