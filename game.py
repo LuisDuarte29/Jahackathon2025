@@ -5,7 +5,7 @@ import settings as cfg
 
 # --- Clases de Entidades y Módulos ---
 from player import Player
-from enemy import Enemy
+from enemy import Enemy, Boss
 from bullet import Bullet, EnemyBullet  # <--- IMPORTADO
 from powerup import PowerUp             # <--- IMPORTADO
 from consumable import Consumable
@@ -24,6 +24,27 @@ ENEMY_TYPES = ["basic", "fast", "tank"]
 # La probabilidad de drop se lee directamente de cfg, como en el original
 cfg.CONSUMABLE_DROP_RATE = getattr(cfg, "CONSUMABLE_DROP_RATE", 0.2)
 
+def victory_screen(screen, clock):
+    """Muestra la pantalla de Victoria."""
+    big_font = pg.font.SysFont("consolas,roboto,arial", 60, bold=True)
+    font = pg.font.SysFont("consolas,roboto,arial", 24)
+    victory_surface = pg.Surface((cfg.LOGICAL_WIDTH, cfg.LOGICAL_HEIGHT))
+    waiting = True
+    while waiting:
+        for event in pg.event.get():
+            if event.type == pg.QUIT: pg.quit(); raise SystemExit
+            if event.type == pg.KEYDOWN:
+                if event.key in [pg.K_RETURN, pg.K_SPACE]: return
+        victory_surface.fill(cfg.BG_COLOR)
+        title = big_font.render("¡HAS GANADO!", True, cfg.GREEN)
+        hint = font.render("Presiona ENTER para volver al menu", True, cfg.WHITE)
+        victory_surface.blit(title, title.get_rect(center=(cfg.LOGICAL_WIDTH / 2, cfg.LOGICAL_HEIGHT / 2)))
+        victory_surface.blit(hint, hint.get_rect(center=(cfg.LOGICAL_WIDTH / 2, cfg.LOGICAL_HEIGHT / 2 + 100)))
+        scaled_surface = pg.transform.smoothscale(victory_surface, screen.get_size())
+        screen.blit(scaled_surface, (0, 0))
+        pg.display.flip()
+        clock.tick(cfg.FPS)
+
 
 # --- Bucle Principal del Juego ---
 def loop_juego(screen, clock):
@@ -33,6 +54,7 @@ def loop_juego(screen, clock):
         Room("map_A2_ruins.txt",  enemies_to_spawn=[("tank", 2), ("fast", 3)]),
         Room("map_B1_cave.txt",   enemies_to_spawn=[("fast", 5)]),
         Room("map_B2_lab.txt",    enemies_to_spawn=[("basic", 2), ("tank", 3)]),
+        Room("map_C1_boss.txt",   enemies_to_spawn=[("boss", 1)]) # <-- NIVEL DEL JEFE
     ]
     current_level_index = 0
 
@@ -83,9 +105,12 @@ def loop_juego(screen, clock):
         exit_pos = new_exit_pos
         
         # Reposicionar al jugador en un lugar seguro del nuevo mapa
-        center_tile_x = game_map.tilewidth // 2
-        center_tile_y = game_map.tileheight // 2
+        center_tile_x = cfg.LOGICAL_WIDTH // (cfg.TILESIZE * 2)
+        center_tile_y = cfg.LOGICAL_HEIGHT // (cfg.TILESIZE * 2)
         
+        pending_enemies_to_spawn = level_data.enemies_to_spawn
+        enemy_spawn_timer = 5.0
+
         found_safe_spot = False
         for r in range(max(game_map.tileheight, game_map.tilewidth)):
             for i in range(-r, r + 1):
@@ -165,7 +190,12 @@ def loop_juego(screen, clock):
                             # Asegurarse de no spawnear sobre el jugador o en una pared
                             if not safe_zone.colliderect(enemy_rect) and not any(wall.rect.colliderect(enemy_rect) for wall in walls):
                                 break
-                        new_enemy = Enemy((x, y), enemy_type=enemy_type)
+                                 # --- CORRECCIÓN: Usar la clase Boss si el tipo es "boss" ---
+                        if enemy_type == "boss":
+                            new_enemy = Boss((x, y))
+                        else:
+                            new_enemy = Enemy((x, y), enemy_type=enemy_type)
+                        
                         enemies.add(new_enemy)
                         all_sprites.add(new_enemy)
                 pending_enemies_to_spawn = []
@@ -206,9 +236,10 @@ def loop_juego(screen, clock):
             current_level_index += 1
             if current_level_index < len(levels):
                 load_level(current_level_index)
-            else: # Juego terminado
-                main_menu.loop_menu(screen, clock)
-                return
+            else:
+                # --- ¡VICTORIA! ---
+                victory_screen(screen, clock)
+                main_menu.loop_menu(clock, loop_juego); return
 
         # Jugador contra enemigos (contacto)
         collided_enemies = pg.sprite.spritecollide(player, enemies, False)

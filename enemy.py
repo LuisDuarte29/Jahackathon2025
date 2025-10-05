@@ -94,3 +94,29 @@ class Enemy(pg.sprite.Sprite):
             temp = pg.Surface(self.rect.size, pg.SRCALPHA)
             temp.fill((255, 255, 255, 120))
             surface.blit(temp, self.rect.topleft, special_flags=pg.BLEND_ADD)
+
+class Boss(Enemy):
+    """Una clase para el jefe final, más grande y más fuerte."""
+    def __init__(self, pos, enemy_type="boss"):
+        super().__init__(pos, enemy_type)
+        
+        # Sobrescribir las estadísticas para el jefe
+        self.speed = cfg.ENEMY_SPEED * 0.1  # Un poco más lento pero imponente
+        self.max_hp = cfg.ENEMY_MAX_HP * 1 # Mucha más vida
+        self.damage = 40                  # Mucho más daño
+        self.hp = self.max_hp
+        
+        # Hacer el sprite del jefe más grande
+        self.anim = Animation(self.anim.frames, sec_per_frame=0.12, loop=True, scale=(96, 96))
+        self.image = self.anim.frame()
+        self.rect = self.image.get_rect(center=pos)
+
+    def draw_hp(self, surface):
+        """Barra de vida más grande y prominente para el jefe."""
+        w, h = self.rect.width * 1.5, 12 # Barra más ancha y gruesa
+        x = self.rect.centerx - w // 2
+        y = self.rect.top - (h + 10)
+        ratio = self.hp / self.max_hp if self.max_hp else 0
+        
+        pg.draw.rect(surface, (60, 60, 60), (x, y, w, h), border_radius=4)
+        pg.draw.rect(surface, (220, 0, 0), (x, y, int(w * ratio), h), border_radius=4)
