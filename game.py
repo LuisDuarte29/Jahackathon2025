@@ -4,45 +4,46 @@ import random
 import settings as cfg
 from player import Player
 from enemy import Enemy
-from bullet import Bullet
+from bullet import Bullet, EnemyBullet
 from powerup import PowerUp
 from consumable import Consumable
 from menus import main_menu, pause
 from menus.class_selection import class_selection_screen
+from menus.game_over import game_over_screen
 from hud import HUD
 from inventory import InventoryHUD
-from tilemap import Map
-from scenario import Room, Exit
 
-# --- Constantes y Funciones de Ayuda ---
+# --- Constantes del juego ---
+CLASS_KEYS = {pg.K_1: "Warrior", pg.K_2: "Rogue", pg.K_3: "Mage"}
 ENEMY_TYPES = ["basic", "fast", "tank"]
+POWERUP_LOCATIONS = [
+    (200, 200),
+    (cfg.WIDTH - 200, 200),
+    (cfg.WIDTH / 2, cfg.HEIGHT - 150),
+]
 
-def game_over_screen(screen, clock, score, time_alive):
-    big_font = pg.font.SysFont("consolas,roboto,arial", 48, bold=True)
-    font = pg.font.SysFont("consolas,roboto,arial", 24)
-    game_over_surface = pg.Surface((cfg.LOGICAL_WIDTH, cfg.LOGICAL_HEIGHT))
-    waiting = True
-    while waiting:
-        for event in pg.event.get():
-            if event.type == pg.QUIT: pg.quit(); raise SystemExit
-            if event.type == pg.KEYDOWN:
-                if event.key in [pg.K_RETURN, pg.K_SPACE]: return
-                if event.key == pg.K_ESCAPE: pg.quit(); raise SystemExit
-        game_over_surface.fill(cfg.BG_COLOR)
-        title = big_font.render("GAME OVER", True, cfg.RED)
-        score_txt = font.render(f"Score: {score}", True, cfg.WHITE)
-        time_txt = font.render(f"Tiempo: {int(time_alive)}s", True, cfg.WHITE)
-        hint = font.render("Presiona ENTER para volver al menu", True, cfg.GRAY)
-        game_over_surface.blit(title, title.get_rect(center=(cfg.LOGICAL_WIDTH / 2, cfg.LOGICAL_HEIGHT / 2 - 60)))
-        game_over_surface.blit(score_txt, score_txt.get_rect(center=(cfg.LOGICAL_WIDTH / 2, cfg.LOGICAL_HEIGHT / 2)))
-        game_over_surface.blit(time_txt, time_txt.get_rect(center=(cfg.LOGICAL_WIDTH / 2, cfg.LOGICAL_HEIGHT / 2 + 40)))
-        game_over_surface.blit(hint, hint.get_rect(center=(cfg.LOGICAL_WIDTH / 2, cfg.LOGICAL_HEIGHT / 2 + 100)))
-        scaled_surface = pg.transform.smoothscale(game_over_surface, screen.get_size())
-        screen.blit(scaled_surface, (0, 0))
-        pg.display.flip()
-        clock.tick(cfg.FPS)
+# Probabilidad de que un enemigo dropee consumible (configurable en settings)
+cfg.CONSUMABLE_DROP_RATE = getattr(cfg, "CONSUMABLE_DROP_RATE", 0.2)
 
-# --- Bucle Principal del Juego ---
+
+def spawn_enemy(offscreen=True):
+    """Genera un enemigo de un tipo aleatorio fuera de la pantalla."""
+    enemy_type = random.choice(ENEMY_TYPES)
+    if offscreen:
+        side = random.choice(["l", "r", "t", "b"])
+        if side == "l":
+            pos = (-30, random.randint(0, cfg.HEIGHT))
+        elif side == "r":
+            pos = (cfg.WIDTH + 30, random.randint(0, cfg.HEIGHT))
+        elif side == "t":
+            pos = (random.randint(0, cfg.WIDTH), -30)
+        else:
+            pos = (random.randint(0, cfg.WIDTH), cfg.HEIGHT + 30)
+    else:
+        pos = (random.randint(50, cfg.WIDTH - 50), random.randint(50, cfg.HEIGHT - 50))
+    return Enemy(pos, enemy_type=enemy_type)
+
+
 def loop_juego(screen, clock):
     
     levels = [
@@ -63,7 +64,9 @@ def loop_juego(screen, clock):
     all_sprites = pg.sprite.Group(player)
     walls = pg.sprite.Group()
     enemies = pg.sprite.Group()
-    bullets = pg.sprite.Group()
+    bullets = pg.sprite.Group()  # balas del jugador
+    enemy_bullets = pg.sprite.Group()  # balas de los enemigos
+    powerups = pg.sprite.Group()
     consumables = pg.sprite.Group()
     exit_group = pg.sprite.Group()
     
@@ -175,25 +178,41 @@ def loop_juego(screen, clock):
         bullets.update(dt)
         hud.update(dt)
         player.tick_hit_cooldown(dt, 0.5)
+        player.update(dt, keys)
 
-        player.pos.x += player.vel.x * dt; player.rect.centerx = round(player.pos.x)
-        for wall in pg.sprite.spritecollide(player, walls, False):
-            if player.vel.x > 0: player.rect.right = wall.rect.left
-            if player.vel.x < 0: player.rect.left = wall.rect.right
-            player.pos.x = player.rect.centerx
-        
-        player.pos.y += player.vel.y * dt; player.rect.centery = round(player.pos.y)
-        for wall in pg.sprite.spritecollide(player, walls, False):
-            if player.vel.y > 0: player.rect.bottom = wall.rect.top
-            if player.vel.y < 0: player.rect.top = wall.rect.bottom
-            player.pos.y = player.rect.centery
+        # Pasamos enemy_bullets para que los enemigos puedan spawnear balas ahí
+        enemies.update(dt, player.rect.center, enemy_bullets)
+        bullets.update(dt)
+        enemy_bullets.update(dt)  # actualizar balas enemigas
+        powerups.update(dt)
+        consumables.update(dt)
 
-        if pg.sprite.spritecollide(player, enemies, False) and player.can_take_hit():
-            for enemy in pg.sprite.spritecollide(player, enemies, False):
+        # --- Lógica de Spawn ---
+        enemy_spawn_timer += dt
+        enemy_spawn_interval = max(0.5, 3.0 - hud.time_alive * 0.04)
+        if enemy_spawn_timer >= enemy_spawn_interval:
+            enemy_spawn_timer = 0.0
+            new_enemy = spawn_enemy()
+            enemies.add(new_enemy)
+            all_sprites.add(new_enemy)
+
+        if not powerups_spawned and hud.time_alive > 1.0:
+            for pos in POWERUP_LOCATIONS:
+                p = PowerUp(pos)
+                powerups.add(p)
+                all_sprites.add(p)
+            powerups_spawned = True
+
+        # --- Colisiones ---
+        # Jugador contra enemigos (contacto cuerpo a cuerpo)
+        collided_enemies = pg.sprite.spritecollide(player, enemies, False)
+        if collided_enemies and player.can_take_hit():
+            for enemy in collided_enemies:
                 player.apply_damage(enemy.damage)
                 hud.add_floating_text(f"-{enemy.damage}", player.rect.center, (255, 100, 100))
             player.trigger_hit_cooldown(0.5)
 
+        # Balas del jugador contra enemigos
         for bullet in bullets:
             hit_enemy = pg.sprite.spritecollideany(bullet, enemies)
             if hit_enemy:
@@ -201,24 +220,57 @@ def loop_juego(screen, clock):
                 bullet.kill()
                 if hit_enemy.is_dead():
                     hud.add_score(100)
+                    hud.add_floating_text(
+                        "+100", hit_enemy.rect.center, (200, 255, 130)
+                    )
+                    # 20% probabilidad de dropear consumible (configurable en settings)
                     if random.random() < cfg.CONSUMABLE_DROP_RATE:
                         c = Consumable(hit_enemy.rect.center)
                         consumables.add(c); all_sprites.add(c)
                     hit_enemy.kill()
 
-        for item in pg.sprite.spritecollide(player, consumables, True):
-            item.apply(hud)
-            inventory_hud.add(getattr(item, 'item_type', 'coin'))
+        # Balas enemigas contra jugador
+        enemy_hits = pg.sprite.spritecollide(player, enemy_bullets, True)
+        for eb in enemy_hits:
+            if player.can_take_hit():
+                player.apply_damage(eb.damage)
+                hud.add_floating_text(
+                    f"-{eb.damage}", player.rect.center, (255, 120, 120)
+                )
+                player.trigger_hit_cooldown(0.5)
 
+        # Jugador contra consumibles
+        picked_consumables = pg.sprite.spritecollide(player, consumables, True)
+        for item in picked_consumables:
+            # Consumable.apply expects the HUD so puede añadir monedas/texto
+            try:
+                item.apply(hud)
+            except TypeError:
+                # fallback: si apply espera player
+                item.apply(player)
+            # actualizar HUD de inventario visual
+            try:
+                inventory_hud.add(item.item_type)
+            except Exception:
+                inventory_hud.add("coin")
+
+        # Jugador contra power-ups
+        picked_powerups = pg.sprite.spritecollide(player, powerups, True)
+        for p_up in picked_powerups:
+            p_up.apply(player)
+            hud.add_floating_text(
+                p_up.effect.replace("_", " ").title(), p_up.rect.center, (255, 215, 0)
+            )
+
+        # --- Game Over ---
         if player.hp <= 0:
-            game_over_screen(screen, clock, hud.score, hud.time_alive)
-            main_menu.loop_menu(clock, loop_juego); return
+            game_over_screen(screen, clock, hud.score, hud.time_alive, loop_juego)
+            return
 
-        game_surface.fill(cfg.BG_COLOR)
-        if game_map: game_map.render(game_surface)
-        
-        all_sprites.draw(game_surface)
+        # --- Dibujado ---
+        screen.fill(cfg.BG_COLOR)
 
+        # Dibujar sprites principales
         for s in all_sprites:
             if hasattr(s, "draw_hp"): s.draw_hp(game_surface)
             if hasattr(s, "draw_health_bar"): s.draw_health_bar(game_surface)
@@ -226,7 +278,11 @@ def loop_juego(screen, clock):
         hud.draw(game_surface)
         inventory_hud.draw(game_surface)
 
-        scaled_surface = pg.transform.smoothscale(game_surface, screen.get_size())
-        screen.blit(scaled_surface, (0, 0))
+        # Dibujar balas enemigas (están en grupo separado)
+        for eb in enemy_bullets:
+            screen.blit(eb.image, eb.rect)
+
+        hud.draw(screen)
+        inventory_hud.draw(screen)
 
         pg.display.flip()
