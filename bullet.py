@@ -35,6 +35,32 @@ class Bullet(pg.sprite.Sprite):
             self.kill()
 
         # Destruir si sale de la pantalla
-        if (self.rect.right < 0 or self.rect.left > cfg.WIDTH or
-            self.rect.bottom < 0 or self.rect.top > cfg.HEIGHT):
+        if (
+            self.rect.right < 0
+            or self.rect.left > cfg.WIDTH
+            or self.rect.bottom < 0
+            or self.rect.top > cfg.HEIGHT
+        ):
             self.kill()
+
+
+class EnemyBullet(pg.sprite.Sprite):
+    def __init__(self, pos, target_pos, damage=10, speed=300):
+        super().__init__()
+        self.image = pg.Surface((8, 8))
+        self.image.fill((200, 50, 50))
+        self.rect = self.image.get_rect(center=pos)
+        self.pos = pg.math.Vector2(pos)
+        self.target = pg.math.Vector2(target_pos)
+        self.speed = speed
+        self.damage = damage
+        dir_vec = self.target - self.pos
+        self.velocity = (
+            dir_vec.normalize() * self.speed
+            if dir_vec.length_squared() > 0
+            else pg.math.Vector2(0, 0)
+        )
+
+    def update(self, dt):
+        self.pos += self.velocity * dt
+        self.rect.center = self.pos
