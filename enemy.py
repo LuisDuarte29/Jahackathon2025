@@ -166,12 +166,12 @@ class Boss(Enemy):
         super().__init__(pos, enemy_type="tank")  # Boss usa sprites de "tank"
 
         # Stats específicos del boss
-        self.speed = cfg.ENEMY_SPEED * 0.8
-        self.max_hp = cfg.ENEMY_MAX_HP * 3
+        self.speed = cfg.ENEMY_SPEED * 1
+        self.max_hp = cfg.ENEMY_MAX_HP * 10
         self.hp = self.max_hp
-        self.damage = 40
+        self.damage = 80
         self.can_shoot = True
-        self.fire_cooldown = 1.0
+        self.fire_cooldown = 0.4
         self.fire_timer = self.fire_cooldown
 
         # Escalar todas las animaciones del boss a 96x96

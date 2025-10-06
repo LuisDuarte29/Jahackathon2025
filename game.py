@@ -36,12 +36,11 @@ def loop_juego(screen, clock):
     # --- Configuración Inicial del Nivel ---
     levels = [
         # Sala aleatoria generada proceduralmente
-        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
-        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
-        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
-        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
-        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
-        Room("RANDOM", enemies_to_spawn=[("basic", 2), ("fast", 2)]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 1), ("fast", 1), ("tank", 1),]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 1), ("fast", 1), ("tank", 1),]),
+        Room("RANDOM", enemies_to_spawn=[("basic", 1), ("fast", 1), ("tank", 1),]),
+
+
         Room("map_C1_boss.txt", enemies_to_spawn=[("boss", 1)]),  # <-- NIVEL DEL JEFE
     ]
     current_level_index = 0
@@ -55,7 +54,8 @@ def loop_juego(screen, clock):
     class_name = class_selection_screen(screen, clock)
     player = Player((0, 0), class_name=class_name)
     hud = HUD(player)
-    inventory_hud = InventoryHUD(player)
+    inventory_hud = InventoryHUD(player, hud)
+
 
     # --- Grupos de Sprites ---
     all_sprites = pg.sprite.Group(player)
